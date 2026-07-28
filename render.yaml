@@ -1,0 +1,32 @@
+# Render Blueprint — fixed public URL for AfriOS API
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: afrios-api
+    runtime: docker
+    rootDir: api
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: afrios-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: OTP_DEV_MODE
+        value: "true"
+      - key: CORS_ORIGINS
+        value: '["*"]'
+      - key: APP_NAME
+        value: AfriOS API
+      # Optional — fill in Render dashboard if you use them:
+      # OPENAI_API_KEY
+      # CINETPAY_API_KEY / CINETPAY_SITE_ID
+
+databases:
+  - name: afrios-db
+    plan: free
+    databaseName: afrios
+    user: afrios

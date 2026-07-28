@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+website/node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+api/.venv/
+
+# Build
+dist/
+website/dist/
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins-dependencies
+
+# Environment
+.env
+.env.*
+!.env.example
+api/.env
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter
+mobile/.packages
+mobile/pubspec.lock
+mobile/android/local.properties
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/.kotlin/
+
+# Logs
+*.log
+
+# Secrets
+**/google-services.json
+**/firebase_options.dart
+*.keystore
+
+# Local SQLite (API dev)
+api/*.db
+api/*.db-*
+
+# Heavy local docs (keep out of deploy repo — optional)
+*.pdf
+Business_Plan_Financier_AfriZone.md
+.vite/

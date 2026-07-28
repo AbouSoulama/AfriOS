@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: afrios
+          POSTGRES_PASSWORD: afrios_dev
+          POSTGRES_DB: afrios
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install API deps
+        working-directory: api
+        run: |
+          pip install -r requirements.txt -r requirements-dev.txt
+      - name: Run API tests
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql+asyncpg://afrios:afrios_dev@localhost:5432/afrios
+          OTP_DEV_MODE: "true"
+        run: pytest -q
+
+  website:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build website
+        working-directory: website
+        run: |
+          npm ci
+          npm run build
+
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Analyze Flutter
+        working-directory: mobile
+        run: |
+          flutter pub get
+          flutter analyze
