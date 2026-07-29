@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/shell.dart';
+import '../../core/database/sync_service.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_config.dart';
 import '../../core/theme/afri_colors.dart';
@@ -12,13 +13,27 @@ import '../../core/widgets/afri_amount.dart';
 import '../../core/widgets/afri_button.dart';
 import '../../core/widgets/afri_empty_state.dart';
 import '../../core/widgets/afri_motion.dart';
+import '../../core/widgets/afri_offline_banner.dart';
 import '../../core/widgets/afri_premium.dart';
 
 final productsProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  final list = await api.getProducts();
-  return List<Map<String, dynamic>>.from(list);
+  final isOnline = ref.watch(connectivityProvider).value ?? true;
+  if (!isOnline) {
+    final store = await ref.watch(offlineStoreProvider.future);
+    return store.getProducts();
+  }
+  try {
+    final list = await api.getProducts();
+    final mapped = List<Map<String, dynamic>>.from(list);
+    final store = await ref.watch(offlineStoreProvider.future);
+    await store.saveProducts(mapped);
+    return mapped;
+  } catch (_) {
+    final store = await ref.watch(offlineStoreProvider.future);
+    return store.getProducts();
+  }
 });
 
 class StockScreen extends ConsumerWidget {
@@ -33,6 +48,7 @@ class StockScreen extends ConsumerWidget {
       body: AfriMeshBackground(
         child: Column(
           children: [
+            const SafeArea(bottom: false, child: AfriOfflineBanner()),
             AfriListHeader(
               title: 'Stock',
               subtitle: 'Produits & alertes',

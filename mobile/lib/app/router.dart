@@ -50,8 +50,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) {
           final extra = state.extra as Map<String, dynamic>? ?? {};
           return OtpScreen(
-              phone: extra['phone'] as String? ?? '',
-              devCode: extra['devCode'] as String?);
+            phone: extra['phone'] as String? ?? '',
+            devCode: extra['devCode'] as String?,
+            channel: extra['channel'] as String?,
+            message: extra['message'] as String?,
+          );
         },
       ),
       GoRoute(

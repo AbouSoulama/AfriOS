@@ -19,7 +19,6 @@ from app.models import (
     Payment,
     PaymentMethod,
     PaymentStatus,
-    Product,
 )
 from app.schemas import (
     InvoiceCreate,
@@ -31,11 +30,10 @@ from app.schemas import (
 from app.services.cinetpay_service import create_payment_link
 from app.services.invoice_service import (
     build_whatsapp_message,
-    calculate_invoice_totals,
     generate_invoice_pdf,
-    next_invoice_number,
     whatsapp_share_url,
 )
+from app.services.payment_service import ensure_pending_payment
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -94,46 +92,23 @@ async def create_invoice(
     business: Business = Depends(get_current_business),
     db: AsyncSession = Depends(get_db),
 ):
-    client = await _get_client(db, business.id, body.client_id)
-    number = await next_invoice_number(db, business.id)
+    from app.services.invoice_create import create_invoice_from_payload
 
-    items_data = [item.model_dump() for item in body.items]
-    subtotal, tax, total = calculate_invoice_totals(items_data, business.tax_rate)
+    try:
+        invoice = await create_invoice_from_payload(
+            db,
+            business,
+            {
+                "client_id": str(body.client_id),
+                "notes": body.notes,
+                "due_date": body.due_date.isoformat() if body.due_date else None,
+                "items": [item.model_dump(mode="json") for item in body.items],
+            },
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    invoice = Invoice(
-        business_id=business.id,
-        client_id=client.id,
-        number=number,
-        status=InvoiceStatus.draft,
-        subtotal=subtotal,
-        tax=tax,
-        total=total,
-        notes=body.notes,
-        due_date=body.due_date.date() if body.due_date else None,
-    )
-    db.add(invoice)
-    await db.flush()
-
-    for item_data in body.items:
-        qty = item_data.quantity
-        line_total = qty * item_data.unit_price - item_data.discount
-        db.add(InvoiceItem(
-            invoice_id=invoice.id,
-            product_id=item_data.product_id,
-            description=item_data.description,
-            quantity=qty,
-            unit_price=item_data.unit_price,
-            discount=item_data.discount,
-            line_total=line_total,
-        ))
-
-        if item_data.product_id:
-            result = await db.execute(select(Product).where(Product.id == item_data.product_id))
-            product = result.scalar_one_or_none()
-            if product:
-                product.quantity = max(0, product.quantity - qty)
-
-    await db.flush()
+    client = await _get_client(db, business.id, invoice.client_id)
     await db.refresh(invoice, ["items"])
     return _invoice_response(invoice, client.name)
 
@@ -158,9 +133,12 @@ async def send_invoice(
     client = await _get_client(db, business.id, inv.client_id)
 
     try:
-        payment_link, ext_ref = await create_payment_link(inv, client.name, client.phone or "")
+        payment_link, ext_ref, _is_mock = await create_payment_link(
+            inv, client.name, client.phone or "", business
+        )
         inv.payment_link = payment_link
         inv.payment_external_ref = ext_ref
+        await ensure_pending_payment(db, inv, business, ext_ref)
     except Exception:
         payment_link = None
 

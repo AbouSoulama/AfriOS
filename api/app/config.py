@@ -11,8 +11,12 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 10080
     otp_dev_mode: bool = True
     otp_expire_minutes: int = 5
+    otp_rate_limit_minutes: int = 15
+    otp_rate_limit_max: int = 5
+    otp_max_attempts: int = 5
     africas_talking_api_key: str = ""
     africas_talking_username: str = ""
+    africas_talking_sender: str = ""
     redis_url: str = "redis://localhost:6379/0"
     cinetpay_api_key: str = ""
     cinetpay_site_id: str = ""
@@ -22,6 +26,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     firebase_credentials_path: str = ""
+    jobs_cron_secret: str = "dev-cron-secret"
     app_name: str = "AfriOS API"
     app_version: str = "1.0.0"
     cors_origins: list[str] = ["*"]

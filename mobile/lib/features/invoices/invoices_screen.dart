@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/shell.dart';
+import '../../core/database/sync_service.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_config.dart';
 import '../../core/theme/afri_colors.dart';
@@ -14,6 +15,7 @@ import '../../core/widgets/afri_button.dart';
 import '../../core/widgets/afri_amount.dart';
 import '../../core/widgets/afri_components.dart';
 import '../../core/widgets/afri_motion.dart';
+import '../../core/widgets/afri_offline_banner.dart';
 import '../../core/widgets/afri_premium.dart';
 import '../../core/widgets/afri_status_badge.dart';
 import '../../core/widgets/afri_empty_state.dart';
@@ -23,8 +25,27 @@ import '../products/products_screen.dart';
 final invoicesProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  final list = await api.getInvoices();
-  return List<Map<String, dynamic>>.from(list);
+  final isOnline = ref.watch(connectivityProvider).value ?? true;
+  if (!isOnline) {
+    final store = await ref.watch(offlineStoreProvider.future);
+    return store.getInvoices();
+  }
+  try {
+    final list = await api.getInvoices();
+    final mapped = List<Map<String, dynamic>>.from(list);
+    final store = await ref.watch(offlineStoreProvider.future);
+    // Keep pending local drafts visible until sync completes.
+    final localPending = store
+        .getInvoices()
+        .where((i) => i['pending_sync'] == true)
+        .toList();
+    final merged = [...localPending, ...mapped];
+    await store.saveInvoices(merged);
+    return merged;
+  } catch (_) {
+    final store = await ref.watch(offlineStoreProvider.future);
+    return store.getInvoices();
+  }
 });
 
 class InvoicesScreen extends ConsumerStatefulWidget {
@@ -49,6 +70,7 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
       body: AfriMeshBackground(
         child: Column(
           children: [
+            const SafeArea(bottom: false, child: AfriOfflineBanner()),
             AfriListHeader(
               title: 'Factures',
               subtitle: 'Suivi & encaissement',
@@ -100,7 +122,14 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
                   }
                   return RefreshIndicator(
                     color: AfriColors.teal,
-                    onRefresh: () async => ref.invalidate(invoicesProvider),
+                    onRefresh: () async {
+                      final online =
+                          ref.read(connectivityProvider).value ?? true;
+                      final sync = await ref.read(syncServiceProvider.future);
+                      await sync.syncIfOnline(online);
+                      ref.read(pendingOpsTickProvider.notifier).state++;
+                      ref.invalidate(invoicesProvider);
+                    },
                     child: ListView.separated(
                       padding: EdgeInsets.fromLTRB(20, 4, 20, bottomPad),
                       itemCount: list.length,
@@ -116,7 +145,20 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
                             status: inv['status'] as String,
                             subtitle: _dueLabel(inv),
                             leadingIcon: Icons.description_outlined,
-                            onTap: () => context.push('/invoices/${inv['id']}'),
+                            onTap: () {
+                              final id = inv['id'] as String;
+                              if (inv['pending_sync'] == true ||
+                                  id.startsWith('local-')) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'Facture locale — sera disponible après synchronisation'),
+                                  ),
+                                );
+                                return;
+                              }
+                              context.push('/invoices/$id');
+                            },
                           ),
                         );
                       },
@@ -419,10 +461,9 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
       return;
     }
     setState(() => _loading = true);
+    final isOnline = ref.read(connectivityProvider).value ?? true;
     try {
-      final api = ref.read(apiClientProvider);
-      final invoice = await api.createInvoice({
-        'client_id': _clientId,
+      final payload = <String, dynamic>{
         'notes': _notes.text.isEmpty ? null : _notes.text,
         if (_dueDate != null) 'due_date': _dueDate!.toUtc().toIso8601String(),
         'items': _items
@@ -431,10 +472,73 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
                   'quantity': i.quantity,
                   'unit_price': i.unitPrice,
                   'discount': i.discount,
-                  'product_id': i.productId,
+                  if (i.productId != null &&
+                      !i.productId!.startsWith('local-'))
+                    'product_id': i.productId,
                 })
             .toList(),
-      });
+      };
+
+      final clientId = _clientId!;
+      if (clientId.startsWith('local-')) {
+        payload['client_op_id'] = clientId.substring('local-'.length);
+      } else {
+        payload['client_id'] = clientId;
+      }
+
+      if (!isOnline) {
+        if (send) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Hors ligne : la facture sera enregistrée, l\'envoi WhatsApp se fera après sync.'),
+          ));
+        }
+        final store = await ref.read(offlineStoreProvider.future);
+        final opId = await store.enqueueOperation(
+          entityType: 'invoice',
+          operation: 'create',
+          payload: payload,
+        );
+        final clients = store.getClients();
+        final clientName = clients
+            .cast<Map<String, dynamic>?>()
+            .firstWhere(
+              (c) => c!['id'] == clientId,
+              orElse: () => null,
+            )?['name'] as String? ??
+            'Client';
+        final subtotal = _items.fold<double>(0, (s, i) => s + i.lineTotal);
+        final local = {
+          'id': 'local-$opId',
+          'number': 'BROUILLON',
+          'status': 'draft',
+          'client_id': clientId,
+          'client_name': clientName,
+          'subtotal': subtotal,
+          'tax': 0,
+          'total': subtotal,
+          'notes': payload['notes'],
+          'due_date': payload['due_date'],
+          'payment_link': null,
+          'created_at': DateTime.now().toIso8601String(),
+          'items': payload['items'],
+          'pending_sync': true,
+        };
+        final cached = store.getInvoices();
+        cached.insert(0, local);
+        await store.saveInvoices(cached);
+        ref.read(pendingOpsTickProvider.notifier).state++;
+        ref.invalidate(invoicesProvider);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Facture enregistrée hors ligne'),
+        ));
+        context.pop();
+        return;
+      }
+
+      final api = ref.read(apiClientProvider);
+      final invoice = await api.createInvoice(payload);
 
       if (send) {
         final result = await api.sendInvoice(invoice['id'] as String);
@@ -609,10 +713,23 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                                     .read(apiClientProvider)
                                     .initiatePayment(widget.invoiceId);
                                 final link = res['payment_link'] as String?;
+                                final sandbox =
+                                    res['sandbox_mock'] as bool? ?? false;
                                 if (link != null) {
                                   await launchUrl(
                                     Uri.parse(link),
                                     mode: LaunchMode.externalApplication,
+                                  );
+                                }
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        sandbox
+                                            ? 'Sandbox ouvert — confirme le paiement puis appuie sur Vérifier.'
+                                            : 'Page de paiement ouverte. Reviens puis appuie sur Vérifier.',
+                                      ),
+                                    ),
                                   );
                                 }
                               } catch (e) {
@@ -629,8 +746,46 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                           ),
                           const SizedBox(height: 12),
                           AfriButton(
-                            label: 'Marquer comme payé (espèces)',
+                            label: 'Vérifier le paiement',
                             variant: AfriButtonVariant.secondary,
+                            isLoading: _busy,
+                            onPressed: () async {
+                              setState(() => _busy = true);
+                              try {
+                                final res = await ref
+                                    .read(apiClientProvider)
+                                    .verifyPayment(invoiceId: widget.invoiceId);
+                                final status = res['status'] as String? ?? '';
+                                ref.invalidate(
+                                    invoiceDetailProvider(widget.invoiceId));
+                                ref.invalidate(invoicesProvider);
+                                if (context.mounted) {
+                                  final msg = switch (status) {
+                                    'paid' || 'already_paid' =>
+                                      'Paiement confirmé — facture payée',
+                                    'pending' =>
+                                      'Paiement encore en attente',
+                                    _ => 'Statut : $status',
+                                  };
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(msg)),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Erreur : $e')),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) setState(() => _busy = false);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          AfriButton(
+                            label: 'Marquer comme payé (espèces)',
+                            variant: AfriButtonVariant.ghost,
                             isLoading: _busy,
                             onPressed: () async {
                               setState(() => _busy = true);

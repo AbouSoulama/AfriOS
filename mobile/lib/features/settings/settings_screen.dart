@@ -4,7 +4,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/auth_provider.dart';
@@ -374,19 +373,25 @@ class _BusinessSettingsScreenState
   }
 }
 
-class PaymentIntegrationsScreen extends StatefulWidget {
+class PaymentIntegrationsScreen extends ConsumerStatefulWidget {
   const PaymentIntegrationsScreen({super.key});
 
   @override
-  State<PaymentIntegrationsScreen> createState() =>
+  ConsumerState<PaymentIntegrationsScreen> createState() =>
       _PaymentIntegrationsScreenState();
 }
 
-class _PaymentIntegrationsScreenState extends State<PaymentIntegrationsScreen> {
+class _PaymentIntegrationsScreenState
+    extends ConsumerState<PaymentIntegrationsScreen> {
   final _siteId = TextEditingController();
   final _apiKey = TextEditingController();
-  final _notifyUrl = TextEditingController();
-  bool _loading = false;
+  bool _enabled = true;
+  bool _loading = true;
+  bool _saving = false;
+  bool _apiKeySet = false;
+  bool _sandboxMode = true;
+  bool _usingPlatformKeys = false;
+  String _notifyUrl = '';
 
   @override
   void initState() {
@@ -395,18 +400,25 @@ class _PaymentIntegrationsScreenState extends State<PaymentIntegrationsScreen> {
   }
 
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    _siteId.text = prefs.getString('cinetpay_site_id') ?? '';
-    _apiKey.text = prefs.getString('cinetpay_api_key') ?? '';
-    _notifyUrl.text = prefs.getString('cinetpay_notify_url') ?? '';
-    if (mounted) setState(() {});
+    try {
+      final api = ref.read(apiClientProvider);
+      final data = await api.getPaymentSettings();
+      _siteId.text = (data['site_id'] as String?) ?? '';
+      _enabled = data['enabled'] as bool? ?? false;
+      _apiKeySet = data['api_key_set'] as bool? ?? false;
+      _sandboxMode = data['sandbox_mode'] as bool? ?? true;
+      _usingPlatformKeys = data['using_platform_keys'] as bool? ?? false;
+      _notifyUrl = (data['notify_url'] as String?) ?? '';
+    } catch (_) {
+      // Keep empty form if offline / not logged in.
+    }
+    if (mounted) setState(() => _loading = false);
   }
 
   @override
   void dispose() {
     _siteId.dispose();
     _apiKey.dispose();
-    _notifyUrl.dispose();
     super.dispose();
   }
 
@@ -415,75 +427,117 @@ class _PaymentIntegrationsScreenState extends State<PaymentIntegrationsScreen> {
     return Scaffold(
       body: AfriMeshBackground(
         child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () => context.pop(),
-                    icon: const Icon(Icons.arrow_back_rounded),
-                  ),
-                  Text('Mobile Money',
-                      style: Theme.of(context).textTheme.headlineSmall),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Configure CinetPay pour accepter Wave, Orange Money et Moov. '
-                'Les clés serveur restent dans l\'API ; ici tu notes tes identifiants marchand.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: AfriColors.slate, height: 1.4),
-              ),
-              const SizedBox(height: 24),
-              TextFormField(
-                controller: _siteId,
-                decoration:
-                    const InputDecoration(labelText: 'CinetPay Site ID'),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _apiKey,
-                decoration: const InputDecoration(
-                    labelText: 'Clé API (référence locale)'),
-                obscureText: true,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _notifyUrl,
-                decoration: const InputDecoration(
-                  labelText: 'URL de notification (webhook)',
-                  hintText: 'https://api.afrios.app/v1/payments/webhook',
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => context.pop(),
+                          icon: const Icon(Icons.arrow_back_rounded),
+                        ),
+                        Text('Mobile Money',
+                            style: Theme.of(context).textTheme.headlineSmall),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _sandboxMode
+                          ? 'Mode sandbox actif : sans clés CinetPay, AfriOS ouvre une page de paiement de test qui marque la facture comme payée.'
+                          : 'CinetPay connecté. Wave, Orange Money et Moov passent par ton compte marchand.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(color: AfriColors.slate, height: 1.4),
+                    ),
+                    if (_usingPlatformKeys) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        'Clés plateforme AfriOS utilisées (fallback serveur).',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AfriColors.forest,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ],
+                    if (_notifyUrl.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        'Webhook : $_notifyUrl',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: AfriColors.slate),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Activer Mobile Money'),
+                      value: _enabled,
+                      onChanged: (v) => setState(() => _enabled = v),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _siteId,
+                      decoration: const InputDecoration(
+                          labelText: 'CinetPay Site ID'),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _apiKey,
+                      decoration: InputDecoration(
+                        labelText: _apiKeySet
+                            ? 'Nouvelle clé API (laisser vide pour garder)'
+                            : 'Clé API CinetPay',
+                      ),
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 28),
+                    AfriButton(
+                      label: 'Enregistrer sur le serveur',
+                      isLoading: _saving,
+                      onPressed: () async {
+                        setState(() => _saving = true);
+                        try {
+                          final payload = <String, dynamic>{
+                            'site_id': _siteId.text.trim(),
+                            'enabled': _enabled,
+                          };
+                          final key = _apiKey.text.trim();
+                          if (key.isNotEmpty) {
+                            payload['api_key'] = key;
+                          }
+                          final data = await ref
+                              .read(apiClientProvider)
+                              .updatePaymentSettings(payload);
+                          _apiKey.clear();
+                          _apiKeySet = data['api_key_set'] as bool? ?? _apiKeySet;
+                          _sandboxMode =
+                              data['sandbox_mode'] as bool? ?? _sandboxMode;
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      'Configuration Mobile Money synchronisée')),
+                            );
+                            context.pop();
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Erreur : $e')),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setState(() => _saving = false);
+                        }
+                      },
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 28),
-              AfriButton(
-                label: 'Enregistrer',
-                isLoading: _loading,
-                onPressed: () async {
-                  setState(() => _loading = true);
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setString(
-                      'cinetpay_site_id', _siteId.text.trim());
-                  await prefs.setString(
-                      'cinetpay_api_key', _apiKey.text.trim());
-                  await prefs.setString(
-                      'cinetpay_notify_url', _notifyUrl.text.trim());
-                  if (mounted) {
-                    setState(() => _loading = false);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content:
-                              Text('Préférences Mobile Money enregistrées')),
-                    );
-                    context.pop();
-                  }
-                },
-              ),
-            ],
-          ),
         ),
       ),
     );

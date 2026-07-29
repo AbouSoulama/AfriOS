@@ -48,19 +48,32 @@ class OfflineStore {
     return List<Map<String, dynamic>>.from(jsonDecode(raw) as List);
   }
 
-  Future<void> enqueueOperation({
+  /// Returns the generated [client_op_id].
+  Future<String> enqueueOperation({
     required String entityType,
     required String operation,
     required Map<String, dynamic> payload,
+    String? clientOpId,
   }) async {
+    final opId = clientOpId ?? const Uuid().v4();
     final pending = getPendingOperations();
     pending.add({
-      'client_op_id': const Uuid().v4(),
+      'client_op_id': opId,
       'entity_type': entityType,
       'operation': operation,
       'payload': payload,
       'created_at': DateTime.now().toIso8601String(),
     });
+    await _prefs.setString(_pendingKey, jsonEncode(pending));
+    return opId;
+  }
+
+  Future<void> removePendingOperations(Iterable<String> clientOpIds) async {
+    final remove = clientOpIds.toSet();
+    if (remove.isEmpty) return;
+    final pending = getPendingOperations()
+        .where((op) => !remove.contains(op['client_op_id']))
+        .toList();
     await _prefs.setString(_pendingKey, jsonEncode(pending));
   }
 

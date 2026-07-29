@@ -589,14 +589,18 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                       }
                       setState(() => _loading = true);
                       try {
-                        final devCode =
+                        final res =
                             await ref.read(authStateProvider.notifier).sendOtp(
                                   phone,
                                   isoCountryCode: _isoCountry,
                                 );
                         if (context.mounted) {
-                          context.push('/auth/otp',
-                              extra: {'phone': phone, 'devCode': devCode});
+                          context.push('/auth/otp', extra: {
+                            'phone': phone,
+                            'devCode': res['dev_code'] as String?,
+                            'channel': res['channel'] as String?,
+                            'message': res['message'] as String?,
+                          });
                         }
                       } catch (e) {
                         if (context.mounted) {
@@ -623,10 +627,18 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
 }
 
 class OtpScreen extends ConsumerStatefulWidget {
-  const OtpScreen({super.key, required this.phone, this.devCode});
+  const OtpScreen({
+    super.key,
+    required this.phone,
+    this.devCode,
+    this.channel,
+    this.message,
+  });
 
   final String phone;
   final String? devCode;
+  final String? channel;
+  final String? message;
 
   @override
   ConsumerState<OtpScreen> createState() => _OtpScreenState();
@@ -636,6 +648,30 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   final _formKey = GlobalKey<FormState>();
   final _controller = TextEditingController();
   bool _loading = false;
+  bool _resending = false;
+  String? _devCode;
+  String? _channel;
+  String? _statusMessage;
+  int _resendCooldown = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _devCode = widget.devCode;
+    _channel = widget.channel;
+    _statusMessage = widget.message;
+    _startCooldown();
+  }
+
+  void _startCooldown([int seconds = 45]) {
+    _resendCooldown = seconds;
+    Future.doWhile(() async {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      if (!mounted) return false;
+      setState(() => _resendCooldown = (_resendCooldown - 1).clamp(0, 999));
+      return _resendCooldown > 0;
+    });
+  }
 
   @override
   void dispose() {
@@ -643,8 +679,36 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     super.dispose();
   }
 
+  Future<void> _resend() async {
+    if (_resendCooldown > 0 || _resending) return;
+    setState(() => _resending = true);
+    try {
+      final res = await ref.read(authStateProvider.notifier).sendOtp(widget.phone);
+      if (!mounted) return;
+      setState(() {
+        _devCode = res['dev_code'] as String?;
+        _channel = res['channel'] as String?;
+        _statusMessage = res['message'] as String?;
+      });
+      _startCooldown();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_statusMessage ?? 'Nouveau code envoyé')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ApiConfig.friendlyError(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _resending = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final smsSent = _channel == 'sms' || _channel == 'sms+dev';
+
     return Scaffold(
       body: AfriMeshBackground(
         child: SafeArea(
@@ -668,14 +732,24 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                   AfriFadeSlide(
                     delay: 60.ms,
                     child: Text(
-                      'Code envoyé au ${widget.phone}',
+                      smsSent
+                          ? 'SMS envoyé au ${widget.phone}'
+                          : 'Code pour ${widget.phone}',
                       style: Theme.of(context)
                           .textTheme
                           .bodyLarge
                           ?.copyWith(color: AfriColors.slate),
                     ),
                   ),
-                  if (widget.devCode != null) ...[
+                  if (_statusMessage != null && _devCode == null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _statusMessage!,
+                      style: const TextStyle(
+                          fontSize: 13, color: AfriColors.slate, height: 1.35),
+                    ),
+                  ],
+                  if (_devCode != null) ...[
                     const SizedBox(height: 14),
                     AfriFadeSlide(
                       delay: 100.ms,
@@ -690,7 +764,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Mode développement',
+                              smsSent
+                                  ? 'Mode dev — code aussi envoyé par SMS'
+                                  : 'Mode développement',
                               style: GoogleFonts.dmSans(
                                 color: Colors.white.withValues(alpha: 0.85),
                                 fontSize: 12,
@@ -699,7 +775,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              widget.devCode!,
+                              _devCode!,
                               style: GoogleFonts.sora(
                                 color: Colors.white,
                                 fontSize: 32,
@@ -732,12 +808,25 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                       validator: (value) {
                         final code = value?.trim() ?? '';
                         if (code.isEmpty) return 'Saisis le code reçu';
-                        if (code.length < 4)
+                        if (code.length < 4) {
                           return 'Code trop court (4 à 6 chiffres)';
-                        if (!RegExp(r'^\d+$').hasMatch(code))
+                        }
+                        if (!RegExp(r'^\d+$').hasMatch(code)) {
                           return 'Chiffres uniquement';
+                        }
                         return null;
                       },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: TextButton(
+                      onPressed: _resendCooldown > 0 || _resending ? null : _resend,
+                      child: Text(
+                        _resendCooldown > 0
+                            ? 'Renvoyer dans ${_resendCooldown}s'
+                            : 'Renvoyer le code',
+                      ),
                     ),
                   ),
                   const Spacer(),

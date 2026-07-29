@@ -33,6 +33,9 @@ CREATE TABLE businesses (
     tax_rate DECIMAL(5,2) NOT NULL DEFAULT 0,
     logo_url TEXT,
     onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    cinetpay_api_key TEXT,
+    cinetpay_site_id VARCHAR(100),
+    cinetpay_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -159,6 +162,7 @@ CREATE TABLE reminders (
     business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
     channel reminder_channel NOT NULL DEFAULT 'whatsapp',
     message TEXT,
+    trigger_days INTEGER,
     sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -196,6 +200,7 @@ CREATE TABLE otp_codes (
     code VARCHAR(6) NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     used BOOLEAN NOT NULL DEFAULT FALSE,
+    attempts INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

@@ -14,22 +14,31 @@ Valider le produit avec **50 commerçants** avant publication Play Store.
 ## Checklist QA avant beta
 
 ### Fonctionnel
-- [ ] Inscription OTP complète
-- [ ] Création client + facture + partage WhatsApp
-- [ ] Paiement CinetPay sandbox → statut Payée
-- [ ] Marquage manuel paiement espèces
-- [ ] Relance manuelle WhatsApp
-- [ ] Assistant IA : CA du mois, stock faible
-- [ ] Mode offline : création facture + sync
+- [x] Inscription OTP complète (dev mode + chemin SMS Africa's Talking)
+- [x] Création client + facture + partage WhatsApp
+- [x] Paiement CinetPay sandbox → statut Payée
+- [x] Marquage manuel paiement espèces
+- [x] Relance manuelle WhatsApp
+- [x] Assistant IA : CA du mois, stock faible
+- [x] Mode offline : création facture + sync
+
+### Relances
+- [x] Relances automatiques (job journalier + notif marchand)
+
+### OTP SMS (prod)
+1. Compte [Africa's Talking](https://account.africastalking.com/)
+2. Render : `AFRICAS_TALKING_API_KEY` + `AFRICAS_TALKING_USERNAME` (+ sender optionnel)
+3. `OTP_DEV_MODE=false`
+4. Tester SMS réel SN (+221) / CI (+225)
 
 ### UI
-- [ ] Navigation 5 onglets fluide
-- [ ] États vides avec CTA
-- [ ] Bannière offline visible
-- [ ] Montants FCFA formatés correctement
+- [x] Navigation 5 onglets fluide
+- [x] États vides avec CTA
+- [x] Bannière offline visible
+- [x] Montants FCFA formatés correctement
 
 ### Sécurité
-- [ ] Isolation multi-tenant (pas d'accès cross-business)
+- [x] Isolation multi-tenant (pas d'accès cross-business) — test API
 - [ ] JWT expiration + refresh
 - [ ] PIN verrouillage (optionnel MVP)
 

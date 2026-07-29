@@ -34,14 +34,27 @@ class ApiClient {
   ApiClient(this._dio);
   final Dio _dio;
 
-  Future<Map<String, dynamic>> sendOtp(String phone) async {
-    final res = await _dio.post('/auth/otp/send', data: {'phone': phone});
+  Future<Map<String, dynamic>> sendOtp(
+    String phone, {
+    String? countryCode,
+  }) async {
+    final res = await _dio.post('/auth/otp/send', data: {
+      'phone': phone,
+      if (countryCode != null) 'country_code': countryCode,
+    });
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> verifyOtp(String phone, String code) async {
-    final res = await _dio
-        .post('/auth/otp/verify', data: {'phone': phone, 'code': code});
+  Future<Map<String, dynamic>> verifyOtp(
+    String phone,
+    String code, {
+    String? countryCode,
+  }) async {
+    final res = await _dio.post('/auth/otp/verify', data: {
+      'phone': phone,
+      'code': code,
+      if (countryCode != null) 'country_code': countryCode,
+    });
     return res.data as Map<String, dynamic>;
   }
 
@@ -205,5 +218,32 @@ class ApiClient {
     final res =
         await _dio.post('/payments/initiate', data: {'invoice_id': invoiceId});
     return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> verifyPayment({
+    String? invoiceId,
+    String? transactionId,
+  }) async {
+    final res = await _dio.post('/payments/verify', data: {
+      if (invoiceId != null) 'invoice_id': invoiceId,
+      if (transactionId != null) 'transaction_id': transactionId,
+    });
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getPaymentSettings() async {
+    final res = await _dio.get('/payments/settings');
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updatePaymentSettings(
+      Map<String, dynamic> data) async {
+    final res = await _dio.put('/payments/settings', data: data);
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<List<dynamic>> listPayments() async {
+    final res = await _dio.get('/payments');
+    return res.data as List<dynamic>;
   }
 }

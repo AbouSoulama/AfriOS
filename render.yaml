@@ -17,10 +17,22 @@ services:
         generateValue: true
       - key: OTP_DEV_MODE
         value: "true"
+      # Remplir dans le dashboard Render pour SMS réel, puis OTP_DEV_MODE=false :
+      # AFRICAS_TALKING_API_KEY
+      # AFRICAS_TALKING_USERNAME (sandbox ou prod)
+      # AFRICAS_TALKING_SENDER
       - key: CORS_ORIGINS
         value: '["*"]'
       - key: APP_NAME
         value: AfriOS API
+      - key: CINETPAY_NOTIFY_URL
+        value: https://afrios-api.onrender.com/v1/webhooks/cinetpay
+      - key: CINETPAY_RETURN_URL
+        value: afrios://payment/success
+      - key: CINETPAY_SANDBOX
+        value: "true"
+      - key: JOBS_CRON_SECRET
+        generateValue: true
       # Optional — fill in Render dashboard if you use them:
       # OPENAI_API_KEY
       # CINETPAY_API_KEY / CINETPAY_SITE_ID

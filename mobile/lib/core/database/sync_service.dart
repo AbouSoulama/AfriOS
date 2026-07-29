@@ -10,8 +10,19 @@ final offlineStoreProvider = FutureProvider<OfflineStore>((ref) async {
   return OfflineStore(prefs);
 });
 
+/// Bumped after enqueue / successful push so UI rebuilds pending count.
+final pendingOpsTickProvider = StateProvider<int>((ref) => 0);
+
+final pendingCountProvider = FutureProvider<int>((ref) async {
+  ref.watch(pendingOpsTickProvider);
+  final store = await ref.watch(offlineStoreProvider.future);
+  return store.pendingCount();
+});
+
 final connectivityProvider = StreamProvider<bool>((ref) async* {
   final connectivity = Connectivity();
+  final initial = await connectivity.checkConnectivity();
+  yield initial.any((r) => r != ConnectivityResult.none);
   await for (final result in connectivity.onConnectivityChanged) {
     yield result.any((r) => r != ConnectivityResult.none);
   }
@@ -41,19 +52,29 @@ class SyncService {
     if (pending.isEmpty) return 0;
 
     try {
-      await _api.syncPush(pending);
-      await _store.clearPendingOperations();
+      final res = await _api.syncPush(pending);
+      final results = List<Map<String, dynamic>>.from(res['results'] as List? ?? []);
+      final done = <String>[];
+      for (final r in results) {
+        final status = r['status'] as String? ?? '';
+        final opId = r['client_op_id'] as String?;
+        if (opId != null && (status == 'processed' || status == 'duplicate')) {
+          done.add(opId);
+        }
+      }
+      await _store.removePendingOperations(done);
       await pullAndCache();
-      return pending.length;
+      return done.length;
     } catch (_) {
       return 0;
     }
   }
 
-  Future<void> syncIfOnline(bool isOnline) async {
-    if (!isOnline) return;
-    await pushPending();
+  Future<int> syncIfOnline(bool isOnline) async {
+    if (!isOnline) return 0;
+    final pushed = await pushPending();
     await pullAndCache();
+    return pushed;
   }
 }
 

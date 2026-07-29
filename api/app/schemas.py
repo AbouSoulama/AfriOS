@@ -13,16 +13,21 @@ class AfriModel(BaseModel):
 # Auth
 class OtpSendRequest(BaseModel):
     phone: str = Field(..., min_length=8, max_length=20)
+    country_code: str | None = Field(default=None, max_length=2)
 
 
 class OtpSendResponse(BaseModel):
     message: str
     dev_code: str | None = None
+    channel: str = "dev"
+    expires_in_seconds: int = 300
+    phone_masked: str | None = None
 
 
 class OtpVerifyRequest(BaseModel):
     phone: str
     code: str = Field(..., min_length=4, max_length=6)
+    country_code: str | None = Field(default=None, max_length=2)
 
 
 class TokenResponse(BaseModel):
@@ -180,6 +185,11 @@ class PaymentInitiateRequest(BaseModel):
     invoice_id: UUID
 
 
+class PaymentVerifyRequest(BaseModel):
+    transaction_id: str | None = None
+    invoice_id: UUID | None = None
+
+
 class PaymentResponse(AfriModel):
     id: UUID
     invoice_id: UUID
@@ -188,6 +198,23 @@ class PaymentResponse(AfriModel):
     status: str
     external_ref: str | None
     created_at: datetime
+
+
+class PaymentSettingsUpdate(BaseModel):
+    site_id: str | None = None
+    api_key: str | None = None
+    enabled: bool | None = None
+    clear_api_key: bool = False
+
+
+class PaymentSettingsResponse(BaseModel):
+    site_id: str | None
+    api_key_set: bool
+    enabled: bool
+    sandbox_mode: bool
+    using_platform_keys: bool
+    notify_url: str
+    return_url: str
 
 
 class MarkPaidRequest(BaseModel):

@@ -760,20 +760,23 @@ class _AddClientScreenState extends ConsumerState<AddClientScreen> {
                             } else {
                               final store =
                                   await ref.read(offlineStoreProvider.future);
-                              await store.enqueueOperation(
+                              final opId = await store.enqueueOperation(
                                 entityType: 'client',
                                 operation: 'create',
                                 payload: payload,
                               );
                               final cached = store.getClients();
                               cached.insert(0, {
-                                'id':
-                                    'local-${DateTime.now().millisecondsSinceEpoch}',
+                                'id': 'local-$opId',
+                                'client_op_id': opId,
                                 ...payload,
                                 'amount_due': 0,
                                 'pending_sync': true,
                               });
                               await store.saveClients(cached);
+                              ref
+                                  .read(pendingOpsTickProvider.notifier)
+                                  .state++;
                             }
                             ref.invalidate(clientsProvider);
                             if (context.mounted) context.pop();

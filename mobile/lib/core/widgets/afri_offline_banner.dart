@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../database/sync_service.dart';
 import '../theme/afri_colors.dart';
 
-class AfriOfflineBanner extends StatelessWidget {
-  const AfriOfflineBanner({super.key, this.pendingCount = 0});
-
-  final int pendingCount;
+/// Shows only when offline; includes pending sync count when available.
+class AfriOfflineBanner extends ConsumerWidget {
+  const AfriOfflineBanner({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isOnline = ref.watch(connectivityProvider).value ?? true;
+    if (isOnline) return const SizedBox.shrink();
+
+    final pending = ref.watch(pendingCountProvider).value ?? 0;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(
           AfriSpace.md, AfriSpace.xs, AfriSpace.md, 0),
@@ -35,8 +41,8 @@ class AfriOfflineBanner extends StatelessWidget {
             const SizedBox(width: AfriSpace.xs),
             Expanded(
               child: Text(
-                pendingCount > 0
-                    ? 'Hors ligne — $pendingCount modification(s) en attente de synchronisation'
+                pending > 0
+                    ? 'Hors ligne — $pending modification(s) en attente de synchronisation'
                     : 'Hors ligne — tes données seront synchronisées automatiquement',
                 style: const TextStyle(
                   fontSize: 12,

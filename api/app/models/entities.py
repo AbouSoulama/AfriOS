@@ -105,6 +105,9 @@ class Business(Base):
     tax_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0"))
     logo_url: Mapped[str | None] = mapped_column(Text)
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    cinetpay_api_key: Mapped[str | None] = mapped_column(Text)
+    cinetpay_site_id: Mapped[str | None] = mapped_column(String(100))
+    cinetpay_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -239,6 +242,7 @@ class Reminder(Base):
     business_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("businesses.id", ondelete="CASCADE"))
     channel: Mapped[ReminderChannel] = mapped_column(_enum(ReminderChannel, "reminder_channel"), default=ReminderChannel.whatsapp)
     message: Mapped[str | None] = mapped_column(Text)
+    trigger_days: Mapped[int | None] = mapped_column(Integer)
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -275,6 +279,7 @@ class OtpCode(Base):
     code: Mapped[str] = mapped_column(String(6), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     used: Mapped[bool] = mapped_column(Boolean, default=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

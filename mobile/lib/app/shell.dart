@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../core/database/sync_service.dart';
 import '../core/theme/afri_colors.dart';
 
 class _NavItem {
@@ -59,15 +61,30 @@ double shellBottomClearance(BuildContext context) {
   return MediaQuery.of(context).padding.bottom + 28;
 }
 
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final path = GoRouterState.of(context).uri.path;
     final index = _indexFromLocation(path);
+
+    ref.listen<AsyncValue<bool>>(connectivityProvider, (prev, next) async {
+      final wasOffline = prev?.value == false;
+      final nowOnline = next.value == true;
+      if (wasOffline && nowOnline) {
+        final sync = await ref.read(syncServiceProvider.future);
+        final n = await sync.syncIfOnline(true);
+        ref.read(pendingOpsTickProvider.notifier).state++;
+        if (n > 0 && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$n opération(s) synchronisée(s)')),
+          );
+        }
+      }
+    });
 
     // Do NOT wrap [child] in AnimatedSwitcher / KeyedSubtree: GoRouter's
     // ShellRoute already owns those elements and re-parenting them triggers

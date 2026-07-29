@@ -65,22 +65,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<String?> sendOtp(String phone, {String? isoCountryCode}) async {
+  Future<Map<String, dynamic>> sendOtp(String phone, {String? isoCountryCode}) async {
     try {
       if (isoCountryCode != null) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('phone_country_code', isoCountryCode);
       }
-      final res = await _api.sendOtp(phone);
-      return res['dev_code'] as String?;
+      return await _api.sendOtp(phone, countryCode: isoCountryCode);
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<void> verifyOtp(String phone, String code) async {
-    final res = await _api.verifyOtp(phone, code);
+  Future<void> verifyOtp(String phone, String code, {String? isoCountryCode}) async {
     final prefs = await SharedPreferences.getInstance();
+    final country =
+        isoCountryCode ?? prefs.getString('phone_country_code');
+    final res = await _api.verifyOtp(phone, code, countryCode: country);
     await prefs.setString('access_token', res['access_token'] as String);
     await prefs.setString('phone', phone);
 
