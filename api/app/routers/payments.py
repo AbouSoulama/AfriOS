@@ -92,6 +92,7 @@ async def update_payment_settings(
 @router.post("/payments/initiate")
 async def initiate_payment(
     body: PaymentInitiateRequest,
+    request: Request,
     business: Business = Depends(get_current_business),
     db: AsyncSession = Depends(get_db),
 ):
@@ -108,9 +109,23 @@ async def initiate_payment(
     if invoice.status == InvoiceStatus.paid:
         raise HTTPException(status_code=400, detail="Facture déjà payée")
 
+    # Prefer the host the mobile app already reaches (LAN IP / Render).
+    forwarded = request.headers.get("x-forwarded-proto")
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+    if forwarded and host:
+        request_base = f"{forwarded}://{host}"
+    else:
+        request_base = str(request.base_url)
+
+    from app.services.cinetpay_service import public_api_origin
+
     try:
         payment_link, ext_ref, is_mock = await create_payment_link(
-            invoice, client.name, client.phone or "", business
+            invoice,
+            client.name,
+            client.phone or "",
+            business,
+            public_origin=public_api_origin(request_base),
         )
     except ValueError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

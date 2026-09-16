@@ -249,13 +249,13 @@ class _BusinessSettingsScreenState
                   key: _formKey,
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                    children: [
+            children: [
                       Row(
-                        children: [
-                          IconButton(
-                            onPressed: () => context.pop(),
-                            icon: const Icon(Icons.arrow_back_rounded),
-                          ),
+                  children: [
+                    IconButton(
+                      onPressed: () => context.pop(),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    ),
                           Text('Entreprise',
                               style: Theme.of(context).textTheme.headlineSmall),
                         ],
@@ -457,7 +457,7 @@ class _PaymentIntegrationsScreenState
                       Text(
                         'Clés plateforme AfriOS utilisées (fallback serveur).',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AfriColors.forest,
+                              color: AfriColors.teal,
                               fontWeight: FontWeight.w600,
                             ),
                       ),
@@ -538,7 +538,7 @@ class _PaymentIntegrationsScreenState
                     ),
                   ],
                 ),
-        ),
+              ),
       ),
     );
   }

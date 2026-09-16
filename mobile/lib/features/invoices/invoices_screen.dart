@@ -11,6 +11,7 @@ import '../../core/network/api_client.dart';
 import '../../core/network/api_config.dart';
 import '../../core/theme/afri_colors.dart';
 import '../../core/utils/parsing.dart';
+import '../../core/utils/url_open.dart';
 import '../../core/widgets/afri_button.dart';
 import '../../core/widgets/afri_amount.dart';
 import '../../core/widgets/afri_components.dart';
@@ -715,23 +716,18 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                                 final link = res['payment_link'] as String?;
                                 final sandbox =
                                     res['sandbox_mock'] as bool? ?? false;
-                                if (link != null) {
-                                  await launchUrl(
-                                    Uri.parse(link),
-                                    mode: LaunchMode.externalApplication,
-                                  );
+                                if (link == null || link.isEmpty) {
+                                  throw Exception(
+                                      'Aucun lien de paiement reçu du serveur');
                                 }
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        sandbox
-                                            ? 'Sandbox ouvert — confirme le paiement puis appuie sur Vérifier.'
-                                            : 'Page de paiement ouverte. Reviens puis appuie sur Vérifier.',
-                                      ),
-                                    ),
-                                  );
-                                }
+                                if (!context.mounted) return;
+                                await openExternalUrl(
+                                  context,
+                                  link,
+                                  successMessage: sandbox
+                                      ? 'Sandbox ouvert — confirme le paiement puis appuie sur Vérifier.'
+                                      : 'Page de paiement ouverte. Reviens puis appuie sur Vérifier.',
+                                );
                               } catch (e) {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(

@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.deps import get_current_business
+from app.config import settings
 from app.models import (
     Business,
     Client,
@@ -27,7 +28,7 @@ from app.schemas import (
     InvoiceSendResponse,
     MarkPaidRequest,
 )
-from app.services.cinetpay_service import create_payment_link
+from app.services.cinetpay_service import create_payment_link, public_api_origin
 from app.services.invoice_service import (
     build_whatsapp_message,
     generate_invoice_pdf,
@@ -134,7 +135,11 @@ async def send_invoice(
 
     try:
         payment_link, ext_ref, _is_mock = await create_payment_link(
-            inv, client.name, client.phone or "", business
+            inv,
+            client.name,
+            client.phone or "",
+            business,
+            public_origin=public_api_origin(settings.public_base_url or None),
         )
         inv.payment_link = payment_link
         inv.payment_external_ref = ext_ref

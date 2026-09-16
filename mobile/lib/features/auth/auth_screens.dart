@@ -537,13 +537,13 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                       validator: _validatePhone,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Serveur : ${ApiConfig.baseUrl}',
-                    style:
-                        const TextStyle(fontSize: 11, color: AfriColors.slate),
-                  ),
                   if (ApiConfig.likelyNeedsLanUrl) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Serveur local : ${ApiConfig.baseUrl}',
+                      style: const TextStyle(
+                          fontSize: 11, color: AfriColors.slate),
+                    ),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -559,8 +559,8 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Téléphone physique : ouvre ⚙️ et mets l\'IP de ton PC '
-                              '(ex. http://172.20.10.5:8000/v1), puis Tester.',
+                              'Cette installation pointe vers une API locale. '
+                              'Pour utiliser AfriOS partout (4G), va dans ⚙️ → URL serveur → Par défaut.',
                               style: GoogleFonts.dmSans(
                                   fontSize: 12,
                                   color: AfriColors.ink,

@@ -17,7 +17,8 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
 
 # --- Variables de configuration ---
-$apiUrl = "http://192.168.11.106:8000/v1"
+# API publique (fonctionne en 4G, sans IP locale)
+$apiUrl = "https://afrios-api.onrender.com/v1"
 
 Write-Host "Flutter path (Court): $env:FLUTTER_ROOT" -ForegroundColor Gray
 Write-Host "Projet:               $PSScriptRoot" -ForegroundColor Gray

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiConfig {
   static const prefKey = 'api_base_url';
+  static const productionUrl = 'https://afrios-api.onrender.com/v1';
   static String? _baseUrl;
   static bool _isPhysicalDevice = false;
 
@@ -14,12 +15,10 @@ class ApiConfig {
 
   static bool get isPhysicalDevice => _isPhysicalDevice;
 
-  /// True when the app likely needs a manual LAN IP (physical device → localhost).
+  /// True when the app is still pointing at a local/LAN server.
   static bool get likelyNeedsLanUrl {
     if (kIsWeb) return false;
-    final url = baseUrl;
-    return _isPhysicalDevice &&
-        (url.contains('127.0.0.1') || url.contains('localhost'));
+    return _isLocalUrl(baseUrl);
   }
 
   static String get _compileTimeUrl {
@@ -29,7 +28,7 @@ class ApiConfig {
     const host = String.fromEnvironment('API_HOST');
     if (host.isNotEmpty) return 'http://$host:8000/v1';
 
-    return 'http://10.0.2.2:8000/v1';
+    return productionUrl;
   }
 
   static Future<void> initialize() async {
@@ -43,33 +42,38 @@ class ApiConfig {
       return;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(prefKey);
-    if (saved != null && saved.isNotEmpty) {
-      _baseUrl = _normalize(saved);
-      return;
-    }
-
     const host = String.fromEnvironment('API_HOST');
     if (host.isNotEmpty) {
       _baseUrl = 'http://$host:8000/v1';
       return;
     }
 
-    if (!kIsWeb &&
-        (Platform.isAndroid || Platform.isIOS) &&
-        _isPhysicalDevice) {
-      // USB + adb reverse, ou Wi-Fi via Paramètres (IP du PC).
-      _baseUrl = 'http://127.0.0.1:8000/v1';
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(prefKey);
+    if (saved != null && saved.isNotEmpty) {
+      final normalized = _normalize(saved);
+      // Old installs saved localhost / LAN IP — those break on 4G.
+      if (_isLocalUrl(normalized)) {
+        await prefs.remove(prefKey);
+        _baseUrl = productionUrl;
+        return;
+      }
+      _baseUrl = normalized;
       return;
     }
 
-    if (!kIsWeb && Platform.isAndroid) {
-      _baseUrl = 'http://10.0.2.2:8000/v1';
-      return;
-    }
+    _baseUrl = productionUrl;
+  }
 
-    _baseUrl = 'http://127.0.0.1:8000/v1';
+  static bool _isLocalUrl(String url) {
+    final host = Uri.tryParse(url)?.host.toLowerCase() ?? url.toLowerCase();
+    if (host == 'localhost' || host == '127.0.0.1' || host == '10.0.2.2') {
+      return true;
+    }
+    if (host.startsWith('192.168.')) return true;
+    if (host.startsWith('10.')) return true;
+    final match = RegExp(r'^172\.(1[6-9]|2\d|3[0-1])\.').firstMatch(host);
+    return match != null;
   }
 
   static Future<bool> _detectPhysicalDevice() async {
@@ -123,8 +127,8 @@ class ApiConfig {
     try {
       final dio = Dio(
         BaseOptions(
-          connectTimeout: const Duration(seconds: 5),
-          receiveTimeout: const Duration(seconds: 5),
+          connectTimeout: const Duration(seconds: 45),
+          receiveTimeout: const Duration(seconds: 45),
           validateStatus: (s) => s != null && s < 500,
         ),
       );
@@ -151,8 +155,8 @@ class ApiConfig {
       if (error.type == DioExceptionType.connectionTimeout ||
           error.type == DioExceptionType.receiveTimeout ||
           error.type == DioExceptionType.sendTimeout) {
-        return 'Délai dépassé. Vérifie que ton téléphone et ton PC sont sur le même Wi-Fi, '
-            'et que l\'API tourne (port 8000).';
+        return 'Le serveur met trop de temps à répondre. '
+            'Sur le plan gratuit Render, le premier appel peut prendre 30 à 60 s — réessaie.';
       }
       if (error.type == DioExceptionType.connectionError) {
         return _connectionHelp;
@@ -166,17 +170,15 @@ class ApiConfig {
       return _connectionHelp;
     }
     if (msg.contains('timeout')) {
-      return 'Délai dépassé. Vérifie que ton téléphone et ton PC sont sur le même réseau.';
+      return 'Délai dépassé. Réessaie : le serveur peut être en réveil (30–60 s).';
     }
     return 'Erreur : $error';
   }
 
-  static String get _connectionHelp => "Serveur inaccessible.\n"
-      "1. Lance l'API sur le PC (port 8000)\n"
-      "2. Icône ⚙️ → URL serveur\n"
-      "   • Émulateur : http://10.0.2.2:8000/v1\n"
-      "   • Téléphone Wi-Fi : http://IP_DU_PC:8000/v1\n"
-      "   • USB : adb reverse tcp:8000 tcp:8000 puis http://127.0.0.1:8000/v1";
+  static String get _connectionHelp =>
+      "Serveur inaccessible. Vérifie ta connexion internet (4G / Wi-Fi).\n"
+      "L'app utilise déjà https://afrios-api.onrender.com/v1.\n"
+      "Si le serveur est en veille, attends une minute puis réessaie.";
 
   static String _formatValidationItem(dynamic e) {
     if (e is! Map) return e.toString();

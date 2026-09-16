@@ -1,5 +1,41 @@
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def normalize_database_url(value: str) -> str:
+    """Make Render/Heroku Postgres URLs work with SQLAlchemy asyncpg.
+
+    - postgres:// → postgresql+asyncpg://
+    - drop sslmode (asyncpg does not understand it)
+    - keep sqlite URLs unchanged
+    """
+    raw = value.strip().strip('"').strip("'")
+    if not raw:
+        return raw
+    if raw.startswith("sqlite"):
+        return raw
+
+    if raw.startswith("postgres://"):
+        raw = "postgresql+asyncpg://" + raw[len("postgres://") :]
+    elif raw.startswith("postgresql://"):
+        raw = "postgresql+asyncpg://" + raw[len("postgresql://") :]
+
+    parsed = urlparse(raw)
+    query = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True) if k.lower() != "sslmode"]
+    return urlunparse(parsed._replace(query=urlencode(query)))
+
+
+def database_host(url: str) -> str:
+    return urlparse(url).hostname or ""
+
+
+def is_local_database(url: str) -> bool:
+    if url.startswith("sqlite"):
+        return True
+    host = (database_host(url) or "").lower()
+    return host in {"localhost", "127.0.0.1", ""}
 
 
 class Settings(BaseSettings):
@@ -23,6 +59,9 @@ class Settings(BaseSettings):
     cinetpay_notify_url: str = "http://localhost:8000/v1/webhooks/cinetpay"
     cinetpay_return_url: str = "afrios://payment/success"
     cinetpay_sandbox: bool = True
+    # Public origin for sandbox checkout links opened on the phone browser.
+    # Prefer the incoming request host; this is the fallback (Render / tunnel).
+    public_base_url: str = ""
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     firebase_credentials_path: str = ""
@@ -34,15 +73,10 @@ class Settings(BaseSettings):
 
     @field_validator("database_url", mode="before")
     @classmethod
-    def normalize_database_url(cls, value: object) -> object:
-        """Render/Heroku give postgres:// — SQLAlchemy async needs postgresql+asyncpg://."""
+    def coerce_database_url(cls, value: object) -> object:
         if not isinstance(value, str):
             return value
-        if value.startswith("postgres://"):
-            return value.replace("postgres://", "postgresql+asyncpg://", 1)
-        if value.startswith("postgresql://") and "+asyncpg" not in value:
-            return value.replace("postgresql://", "postgresql+asyncpg://", 1)
-        return value
+        return normalize_database_url(value)
 
 
 settings = Settings()

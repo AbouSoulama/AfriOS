@@ -40,16 +40,46 @@ def resolve_credentials(business: Business | None = None) -> CinetPayCredentials
     )
 
 
-def public_api_origin() -> str:
-    """Derive public API origin from notify_url (e.g. https://afrios-api.onrender.com)."""
-    parsed = urlparse(settings.cinetpay_notify_url)
+def _origin_from_url(url: str) -> str | None:
+    parsed = urlparse(url)
     if parsed.scheme and parsed.netloc:
         return urlunparse((parsed.scheme, parsed.netloc, "", "", "", ""))
+    return None
+
+
+def public_api_origin(request_base_url: str | None = None) -> str:
+    """Origin reachable by the phone browser for sandbox checkout pages.
+
+    Priority:
+    1. Incoming request host when it's not localhost (LAN IP / Render)
+    2. PUBLIC_BASE_URL env
+    3. Request host even if localhost (adb reverse)
+    4. Origin of CINETPAY_NOTIFY_URL
+    5. localhost fallback
+    """
+    request_origin = _origin_from_url((request_base_url or "").rstrip("/") + "/") if request_base_url else None
+    configured = _origin_from_url(settings.public_base_url.strip()) if settings.public_base_url.strip() else None
+    notify_origin = _origin_from_url(settings.cinetpay_notify_url)
+
+    if request_origin and "localhost" not in request_origin and "127.0.0.1" not in request_origin:
+        return request_origin
+    if configured:
+        return configured
+    if request_origin:
+        return request_origin
+    if notify_origin:
+        return notify_origin
     return "http://localhost:8000"
 
 
-def sandbox_checkout_url(transaction_id: str, amount: object, invoice_number: str) -> str:
-    origin = public_api_origin()
+def sandbox_checkout_url(
+    transaction_id: str,
+    amount: object,
+    invoice_number: str,
+    *,
+    public_origin: str | None = None,
+) -> str:
+    origin = (public_origin or public_api_origin()).rstrip("/")
     return (
         f"{origin}/v1/payments/sandbox/checkout"
         f"?ref={transaction_id}&amount={amount}&invoice={invoice_number}"
@@ -61,6 +91,8 @@ async def create_payment_link(
     customer_name: str,
     customer_phone: str,
     business: Business | None = None,
+    *,
+    public_origin: str | None = None,
 ) -> tuple[str, str, bool]:
     """Create CinetPay (or AfriOS sandbox) session.
 
@@ -70,7 +102,12 @@ async def create_payment_link(
     creds = resolve_credentials(business)
 
     if not creds.configured:
-        mock_url = sandbox_checkout_url(transaction_id, invoice.total, invoice.number)
+        mock_url = sandbox_checkout_url(
+            transaction_id,
+            invoice.total,
+            invoice.number,
+            public_origin=public_origin,
+        )
         return mock_url, transaction_id, True
 
     payload = {
@@ -109,7 +146,6 @@ async def verify_cinetpay_transaction(
 ) -> dict:
     creds = resolve_credentials(business)
     if not creds.configured:
-        # Dev / sandbox mock: treat unknown checks as accepted so webhook + verify work.
         return {"status": "ACCEPTED", "transaction_id": transaction_id, "mock": True}
 
     payload = {

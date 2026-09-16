@@ -25,21 +25,17 @@ Future<bool> showApiUrlDialog(BuildContext context) async {
                   TextField(
                     controller: controller,
                     decoration: const InputDecoration(
-                      hintText: 'http://192.168.1.10:8000/v1',
+                      hintText: ApiConfig.productionUrl,
                       border: OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.url,
                     autocorrect: false,
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    ApiConfig.isPhysicalDevice
-                        ? 'Téléphone physique : utilise l\'IP Wi-Fi de ton PC '
-                            '(ex. http://172.20.10.5:8000/v1), ou USB + '
-                            'adb reverse tcp:8000 tcp:8000.'
-                        : 'Émulateur Android : http://10.0.2.2:8000/v1',
-                    style:
-                        const TextStyle(fontSize: 12, color: AfriColors.slate),
+                  const Text(
+                    'Par défaut l\'app parle au serveur AfriOS en ligne. '
+                    'Ne change cette URL que pour tester une API locale.',
+                    style: TextStyle(fontSize: 12, color: AfriColors.slate),
                   ),
                   if (testMessage != null) ...[
                     const SizedBox(height: 12),
