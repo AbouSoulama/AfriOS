@@ -139,27 +139,51 @@ def _otp_message(code: str) -> str:
     )
 
 
+def _africas_talking_messaging_url() -> str:
+    username = (settings.africas_talking_username or "").strip().lower()
+    use_sandbox = settings.africas_talking_sandbox or username == "sandbox"
+    if use_sandbox:
+        return "https://api.sandbox.africastalking.com/version1/messaging"
+    return "https://api.africastalking.com/version1/messaging"
+
+
 async def _send_sms_africas_talking(phone: str, message: str) -> None:
-    url = "https://api.africastalking.com/version1/messaging"
+    api_key = (settings.africas_talking_api_key or "").strip()
+    username = (settings.africas_talking_username or "").strip()
+    if not api_key or not username:
+        raise RuntimeError(
+            "Clés Africa's Talking manquantes (AFRICAS_TALKING_API_KEY / USERNAME)."
+        )
+
+    url = _africas_talking_messaging_url()
     headers = {
-        "apiKey": settings.africas_talking_api_key,
+        "apiKey": api_key,
         "Accept": "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
     }
     data: dict[str, str] = {
-        "username": settings.africas_talking_username,
+        "username": username,
         "to": phone,
         "message": message,
     }
-    sender = settings.africas_talking_sender.strip()
+    sender = (settings.africas_talking_sender or "").strip()
     if sender:
         data["from"] = sender
 
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(url, headers=headers, data=data)
 
+    if response.status_code == 401:
+        raise RuntimeError(
+            "Clés Africa's Talking invalides (HTTP 401). "
+            "Vérifie API Key + Username sur Render. "
+            "Si username=sandbox, utilise la clé Sandbox "
+            "(et AFRICAS_TALKING_SANDBOX=true)."
+        )
     if response.status_code >= 400:
-        raise RuntimeError(f"Africa's Talking HTTP {response.status_code}: {response.text[:200]}")
+        raise RuntimeError(
+            f"Africa's Talking HTTP {response.status_code}: {response.text[:200]}"
+        )
 
     payload = response.json()
     # Typical shape: {"SMSMessageData": {"Recipients": [{"statusCode": 101, "status": "Success"}]}}

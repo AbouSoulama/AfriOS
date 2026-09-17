@@ -14,6 +14,7 @@ import '../../core/theme/afri_colors.dart';
 import '../../core/utils/url_open.dart';
 import '../../core/widgets/afri_button.dart';
 import '../../core/widgets/afri_empty_state.dart';
+import '../../core/widgets/afri_logo.dart';
 import '../../core/widgets/afri_motion.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -42,26 +43,23 @@ class SettingsScreen extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    gradient: AfriColors.tealGlow,
+                    color: const Color(0xFF0A0A0A),
                     borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: AfriColors.mistDeep),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Text(
-                        'AfriOS',
-                        style: GoogleFonts.sora(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.8,
+                      const AfriLogo(height: 72),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'L\'OS de ton business',
+                          style: GoogleFonts.dmSans(
+                            color: Colors.white.withValues(alpha: 0.88),
+                            fontSize: 15,
+                            height: 1.35,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'L\'OS de ton business',
-                        style: GoogleFonts.dmSans(
-                            color: Colors.white.withValues(alpha: 0.85)),
                       ),
                     ],
                   ),

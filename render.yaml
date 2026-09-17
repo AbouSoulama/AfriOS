@@ -18,10 +18,12 @@ services:
         generateValue: true
       - key: OTP_DEV_MODE
         value: "false"
-      # Obliger pour SMS réel :
-      # AFRICAS_TALKING_API_KEY
-      # AFRICAS_TALKING_USERNAME
-      # AFRICAS_TALKING_SENDER (optionnel)
+      # À saisir dans Render → Environment (secrets) :
+      # AFRICAS_TALKING_API_KEY   = clé API (Live ou Sandbox)
+      # AFRICAS_TALKING_USERNAME  = username Live, ou "sandbox"
+      # AFRICAS_TALKING_SENDER    = optionnel
+      # AFRICAS_TALKING_SANDBOX   = "true" si tu utilises le sandbox
+      # Astuce 401 : ne mélange pas clé Live + username sandbox (ou l'inverse).
       - key: CORS_ORIGINS
         value: '["*"]'
       - key: APP_NAME

@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     africas_talking_api_key: str = ""
     africas_talking_username: str = ""
     africas_talking_sender: str = ""
+    # true = api.sandbox.africastalking.com (username "sandbox")
+    africas_talking_sandbox: bool = False
     redis_url: str = "redis://localhost:6379/0"
     # FedaPay (Mobile Money + abonnements)
     fedapay_secret_key: str = ""

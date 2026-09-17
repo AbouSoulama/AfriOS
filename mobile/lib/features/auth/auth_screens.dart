@@ -330,43 +330,13 @@ class _SlideCopy extends StatelessWidget {
   }
 }
 
-/// Glass chip holding the logo mark plus wordmark.
+/// Brand mark only — logo already includes the AfriOS wordmark.
 class _BrandBadge extends StatelessWidget {
   const _BrandBadge();
 
   @override
   Widget build(BuildContext context) {
-    return AfriGlass(
-      dark: true,
-      radius: AfriRadius.pill,
-      blur: 10,
-      padding: const EdgeInsets.fromLTRB(8, 7, 16, 7),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            padding: const EdgeInsets.all(3),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: const AfriLogo(height: 22),
-          ),
-          const SizedBox(width: AfriSpace.xs),
-          Text(
-            'AfriOS',
-            style: GoogleFonts.sora(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: -0.4,
-            ),
-          ),
-        ],
-      ),
-    );
+    return const AfriLogo(height: 48);
   }
 }
 
@@ -495,17 +465,9 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                   ),
                   const SizedBox(height: 8),
                   AfriFadeSlide(
-                    child: Text(
-                      'AfriOS',
-                      style: GoogleFonts.sora(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w800,
-                        color: AfriColors.ink,
-                        letterSpacing: -1,
-                      ),
-                    ),
+                    child: const AfriLogo(height: 88),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
                   AfriFadeSlide(
                     delay: 60.ms,
                     child: Text(
@@ -930,16 +892,9 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
               children: [
                 AfriFadeSlide(
-                  child: Text(
-                    'AfriOS',
-                    style: GoogleFonts.sora(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.8,
-                    ),
-                  ),
+                  child: const AfriLogo(height: 72),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 12),
                 AfriFadeSlide(
                   delay: 50.ms,
                   child: Text(
