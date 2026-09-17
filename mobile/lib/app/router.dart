@@ -122,6 +122,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           path: '/settings/payments',
           builder: (_, __) => const PaymentIntegrationsScreen()),
       GoRoute(
+          path: '/settings/subscription',
+          builder: (_, __) => const SubscriptionScreen()),
+      GoRoute(
           path: '/settings/help',
           builder: (_, __) => const HelpSupportScreen()),
       GoRoute(path: '/reminders', builder: (_, __) => const RemindersScreen()),

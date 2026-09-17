@@ -35,7 +35,7 @@ async def ensure_pending_payment(
         amount=invoice.total,
         external_ref=ext_ref,
         status=PaymentStatus.pending,
-        metadata_={"provider": "cinetpay"},
+        metadata_={"provider": "fedapay"},
     )
     db.add(payment)
     await db.flush()

@@ -28,7 +28,7 @@ from app.schemas import (
     InvoiceSendResponse,
     MarkPaidRequest,
 )
-from app.services.cinetpay_service import create_payment_link, public_api_origin
+from app.services.fedapay_service import create_payment_link, public_api_origin
 from app.services.invoice_service import (
     build_whatsapp_message,
     generate_invoice_pdf,

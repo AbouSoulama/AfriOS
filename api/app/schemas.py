@@ -65,6 +65,8 @@ class BusinessResponse(AfriModel):
     tax_rate: Decimal
     logo_url: str | None
     onboarding_completed: bool
+    plan_id: str = "free"
+    plan_expires_at: datetime | None = None
 
 
 # Clients
@@ -188,6 +190,7 @@ class PaymentInitiateRequest(BaseModel):
 class PaymentVerifyRequest(BaseModel):
     transaction_id: str | None = None
     invoice_id: UUID | None = None
+    plan_id: str | None = None
 
 
 class PaymentResponse(AfriModel):
@@ -201,20 +204,33 @@ class PaymentResponse(AfriModel):
 
 
 class PaymentSettingsUpdate(BaseModel):
+    public_key: str | None = None
+    secret_key: str | None = None
+    enabled: bool | None = None
+    clear_secret_key: bool = False
+    # Legacy aliases (CinetPay UI)
     site_id: str | None = None
     api_key: str | None = None
-    enabled: bool | None = None
     clear_api_key: bool = False
 
 
 class PaymentSettingsResponse(BaseModel):
-    site_id: str | None
-    api_key_set: bool
-    enabled: bool
-    sandbox_mode: bool
-    using_platform_keys: bool
-    notify_url: str
-    return_url: str
+    provider: str = "fedapay"
+    public_key: str | None = None
+    secret_key_set: bool = False
+    enabled: bool = False
+    sandbox_mode: bool = True
+    using_platform_keys: bool = False
+    callback_url: str = ""
+    return_url: str = ""
+    # Legacy fields for older app builds
+    site_id: str | None = None
+    api_key_set: bool = False
+    notify_url: str = ""
+
+
+class SubscriptionCheckoutRequest(BaseModel):
+    plan_id: str
 
 
 class MarkPaidRequest(BaseModel):

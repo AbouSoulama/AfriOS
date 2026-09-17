@@ -11,6 +11,7 @@ import '../../core/network/api_client.dart';
 import '../../core/network/api_config.dart';
 import '../../core/network/api_url_dialog.dart';
 import '../../core/theme/afri_colors.dart';
+import '../../core/utils/url_open.dart';
 import '../../core/widgets/afri_button.dart';
 import '../../core/widgets/afri_empty_state.dart';
 import '../../core/widgets/afri_motion.dart';
@@ -76,8 +77,14 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: Icons.payment_outlined,
                 title: 'Intégrations Mobile Money',
-                subtitle: 'CinetPay — Wave, Orange Money',
+                subtitle: 'FedaPay — Wave, Moov, MTN…',
                 onTap: () => context.push('/settings/payments'),
+              ),
+              _SettingsTile(
+                icon: Icons.workspace_premium_outlined,
+                title: 'Abonnement',
+                subtitle: 'Gratuit · Pro · Entreprise',
+                onTap: () => context.push('/settings/subscription'),
               ),
               _SettingsTile(
                 icon: Icons.notifications_active_outlined,
@@ -383,15 +390,15 @@ class PaymentIntegrationsScreen extends ConsumerStatefulWidget {
 
 class _PaymentIntegrationsScreenState
     extends ConsumerState<PaymentIntegrationsScreen> {
-  final _siteId = TextEditingController();
-  final _apiKey = TextEditingController();
+  final _publicKey = TextEditingController();
+  final _secretKey = TextEditingController();
   bool _enabled = true;
   bool _loading = true;
   bool _saving = false;
-  bool _apiKeySet = false;
+  bool _secretSet = false;
   bool _sandboxMode = true;
   bool _usingPlatformKeys = false;
-  String _notifyUrl = '';
+  String _callbackUrl = '';
 
   @override
   void initState() {
@@ -403,22 +410,25 @@ class _PaymentIntegrationsScreenState
     try {
       final api = ref.read(apiClientProvider);
       final data = await api.getPaymentSettings();
-      _siteId.text = (data['site_id'] as String?) ?? '';
+      _publicKey.text =
+          (data['public_key'] as String?) ?? (data['site_id'] as String?) ?? '';
       _enabled = data['enabled'] as bool? ?? false;
-      _apiKeySet = data['api_key_set'] as bool? ?? false;
+      _secretSet = (data['secret_key_set'] as bool?) ??
+          (data['api_key_set'] as bool?) ??
+          false;
       _sandboxMode = data['sandbox_mode'] as bool? ?? true;
       _usingPlatformKeys = data['using_platform_keys'] as bool? ?? false;
-      _notifyUrl = (data['notify_url'] as String?) ?? '';
-    } catch (_) {
-      // Keep empty form if offline / not logged in.
-    }
+      _callbackUrl = (data['callback_url'] as String?) ??
+          (data['notify_url'] as String?) ??
+          '';
+    } catch (_) {}
     if (mounted) setState(() => _loading = false);
   }
 
   @override
   void dispose() {
-    _siteId.dispose();
-    _apiKey.dispose();
+    _publicKey.dispose();
+    _secretKey.dispose();
     super.dispose();
   }
 
@@ -438,15 +448,15 @@ class _PaymentIntegrationsScreenState
                           onPressed: () => context.pop(),
                           icon: const Icon(Icons.arrow_back_rounded),
                         ),
-                        Text('Mobile Money',
+                        Text('FedaPay',
                             style: Theme.of(context).textTheme.headlineSmall),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Text(
                       _sandboxMode
-                          ? 'Mode sandbox actif : sans clés CinetPay, AfriOS ouvre une page de paiement de test qui marque la facture comme payée.'
-                          : 'CinetPay connecté. Wave, Orange Money et Moov passent par ton compte marchand.',
+                          ? 'Mode sandbox : sans clés FedaPay, AfriOS ouvre une page de test qui confirme le paiement.'
+                          : 'FedaPay connecté. Tes clients peuvent payer en Mobile Money.',
                       style: Theme.of(context)
                           .textTheme
                           .bodyMedium
@@ -462,10 +472,10 @@ class _PaymentIntegrationsScreenState
                             ),
                       ),
                     ],
-                    if (_notifyUrl.isNotEmpty) ...[
+                    if (_callbackUrl.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       Text(
-                        'Webhook : $_notifyUrl',
+                        'Callback : $_callbackUrl',
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
@@ -481,17 +491,17 @@ class _PaymentIntegrationsScreenState
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
-                      controller: _siteId,
+                      controller: _publicKey,
                       decoration: const InputDecoration(
-                          labelText: 'CinetPay Site ID'),
+                          labelText: 'Clé publique FedaPay'),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
-                      controller: _apiKey,
+                      controller: _secretKey,
                       decoration: InputDecoration(
-                        labelText: _apiKeySet
-                            ? 'Nouvelle clé API (laisser vide pour garder)'
-                            : 'Clé API CinetPay',
+                        labelText: _secretSet
+                            ? 'Nouvelle clé secrète (laisser vide pour garder)'
+                            : 'Clé secrète FedaPay',
                       ),
                       obscureText: true,
                     ),
@@ -503,25 +513,27 @@ class _PaymentIntegrationsScreenState
                         setState(() => _saving = true);
                         try {
                           final payload = <String, dynamic>{
-                            'site_id': _siteId.text.trim(),
+                            'public_key': _publicKey.text.trim(),
                             'enabled': _enabled,
                           };
-                          final key = _apiKey.text.trim();
+                          final key = _secretKey.text.trim();
                           if (key.isNotEmpty) {
-                            payload['api_key'] = key;
+                            payload['secret_key'] = key;
                           }
                           final data = await ref
                               .read(apiClientProvider)
                               .updatePaymentSettings(payload);
-                          _apiKey.clear();
-                          _apiKeySet = data['api_key_set'] as bool? ?? _apiKeySet;
+                          _secretKey.clear();
+                          _secretSet = (data['secret_key_set'] as bool?) ??
+                              (data['api_key_set'] as bool?) ??
+                              _secretSet;
                           _sandboxMode =
                               data['sandbox_mode'] as bool? ?? _sandboxMode;
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                   content: Text(
-                                      'Configuration Mobile Money synchronisée')),
+                                      'Configuration FedaPay synchronisée')),
                             );
                             context.pop();
                           }
@@ -538,7 +550,225 @@ class _PaymentIntegrationsScreenState
                     ),
                   ],
                 ),
-              ),
+        ),
+      ),
+    );
+  }
+}
+
+class SubscriptionScreen extends ConsumerStatefulWidget {
+  const SubscriptionScreen({super.key});
+
+  @override
+  ConsumerState<SubscriptionScreen> createState() => _SubscriptionScreenState();
+}
+
+class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
+  bool _loading = true;
+  bool _busy = false;
+  Map<String, dynamic>? _current;
+  List<Map<String, dynamic>> _plans = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final api = ref.read(apiClientProvider);
+      final current = await api.getCurrentSubscription();
+      final plansRes = await api.getBillingPlans();
+      final plans = List<Map<String, dynamic>>.from(
+          (plansRes['plans'] as List?) ?? []);
+      if (mounted) {
+        setState(() {
+          _current = current;
+          _plans = plans;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
+  Future<void> _subscribe(String planId) async {
+    setState(() => _busy = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      final res = await api.subscribePlan(planId);
+      final link = res['payment_link'] as String?;
+      final tx = res['transaction_id'] as String?;
+      if (link != null && link.isNotEmpty && mounted) {
+        await openExternalUrl(
+          context,
+          link,
+          successMessage: 'Page de paiement ouverte — confirme puis reviens.',
+        );
+        if (tx != null && mounted) {
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Paiement terminé ?'),
+              content: const Text(
+                  'Si tu as confirmé le paiement FedaPay / sandbox, valide ici.'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Plus tard')),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Confirmer')),
+              ],
+            ),
+          );
+          if (confirm == true) {
+            await api.confirmSubscription(transactionId: tx, planId: planId);
+            await _load();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Abonnement mis à jour')),
+              );
+            }
+          }
+        }
+      } else {
+        await _load();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Plan Gratuit activé')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erreur : $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentId =
+        (_current?['plan_id'] as String?) ?? 'free';
+
+    return Scaffold(
+      body: AfriMeshBackground(
+        child: SafeArea(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => context.pop(),
+                          icon: const Icon(Icons.arrow_back_rounded),
+                        ),
+                        Text('Abonnement',
+                            style: Theme.of(context).textTheme.headlineSmall),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Plan actuel : ${(_current?['plan'] as Map?)?['name'] ?? currentId}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, color: AfriColors.teal),
+                    ),
+                    const SizedBox(height: 16),
+                    ..._plans.map((plan) {
+                      final id = plan['id'] as String? ?? '';
+                      final price = plan['price_monthly'] ?? 0;
+                      final features =
+                          List<String>.from((plan['features'] as List?) ?? []);
+                      final selected = id == currentId;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: selected
+                                ? AfriColors.teal
+                                : AfriColors.mistDeep,
+                            width: selected ? 2 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    plan['name'] as String? ?? id,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 18),
+                                  ),
+                                ),
+                                Text(
+                                  price == 0
+                                      ? 'Gratuit'
+                                      : '$price FCFA/mois',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              plan['tagline'] as String? ?? '',
+                              style: const TextStyle(
+                                  color: AfriColors.slate, fontSize: 13),
+                            ),
+                            const SizedBox(height: 10),
+                            ...features.map(
+                              (f) => Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.check_circle,
+                                        size: 16, color: AfriColors.teal),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                        child: Text(f,
+                                            style:
+                                                const TextStyle(fontSize: 13))),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            AfriButton(
+                              label: selected
+                                  ? 'Plan actuel'
+                                  : (price == 0
+                                      ? 'Passer en Gratuit'
+                                      : 'Choisir ce plan'),
+                              isLoading: _busy,
+                              onPressed: selected
+                                  ? null
+                                  : () => _subscribe(id),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -572,10 +802,11 @@ class HelpSupportScreen extends StatelessWidget {
                     '1. Ajoute un client\n2. Crée une facture\n3. Envoie-la sur WhatsApp\n4. Encaisse en espèces ou Mobile Money',
               ),
               _HelpCard(
-                title: 'Connexion téléphone ↔ API',
+                title: 'Connexion',
                 body:
-                    'USB : adb reverse tcp:8000 tcp:8000 puis URL http://127.0.0.1:8000/v1\n'
-                    'Wi‑Fi : http://IP_DU_PC:8000/v1 (même réseau)',
+                    'L\'app utilise https://afrios-api.onrender.com/v1 par défaut (4G / Wi‑Fi).\n'
+                    'OTP SMS : Africa\'s Talking doit être configuré sur le serveur.\n'
+                    'Paiements : FedaPay (clés dans Paramètres → FedaPay).',
               ),
               _HelpCard(
                 title: 'Support beta',

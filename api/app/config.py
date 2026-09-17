@@ -54,13 +54,18 @@ class Settings(BaseSettings):
     africas_talking_username: str = ""
     africas_talking_sender: str = ""
     redis_url: str = "redis://localhost:6379/0"
+    # FedaPay (Mobile Money + abonnements)
+    fedapay_secret_key: str = ""
+    fedapay_public_key: str = ""
+    fedapay_sandbox: bool = True
+    fedapay_callback_url: str = "http://localhost:8000/v1/webhooks/fedapay"
+    fedapay_return_url: str = "afrios://payment/success"
+    # Legacy CinetPay (ignored if FedaPay is configured)
     cinetpay_api_key: str = ""
     cinetpay_site_id: str = ""
     cinetpay_notify_url: str = "http://localhost:8000/v1/webhooks/cinetpay"
     cinetpay_return_url: str = "afrios://payment/success"
     cinetpay_sandbox: bool = True
-    # Public origin for sandbox checkout links opened on the phone browser.
-    # Prefer the incoming request host; this is the fallback (Render / tunnel).
     public_base_url: str = ""
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"

@@ -17,28 +17,28 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: OTP_DEV_MODE
-        value: "true"
-      # Remplir dans le dashboard Render pour SMS réel, puis OTP_DEV_MODE=false :
+        value: "false"
+      # Obliger pour SMS réel :
       # AFRICAS_TALKING_API_KEY
-      # AFRICAS_TALKING_USERNAME (sandbox ou prod)
-      # AFRICAS_TALKING_SENDER
+      # AFRICAS_TALKING_USERNAME
+      # AFRICAS_TALKING_SENDER (optionnel)
       - key: CORS_ORIGINS
         value: '["*"]'
       - key: APP_NAME
         value: AfriOS API
-      - key: CINETPAY_NOTIFY_URL
-        value: https://afrios-api.onrender.com/v1/webhooks/cinetpay
-      - key: CINETPAY_RETURN_URL
+      - key: FEDAPAY_CALLBACK_URL
+        value: https://afrios-api.onrender.com/v1/webhooks/fedapay
+      - key: FEDAPAY_RETURN_URL
         value: afrios://payment/success
-      - key: CINETPAY_SANDBOX
+      - key: FEDAPAY_SANDBOX
         value: "true"
+      # Obliger pour paiements réels FedaPay :
+      # FEDAPAY_SECRET_KEY
+      # FEDAPAY_PUBLIC_KEY
       - key: PUBLIC_BASE_URL
         value: https://afrios-api.onrender.com
       - key: JOBS_CRON_SECRET
         generateValue: true
-      # Optional — fill in Render dashboard if you use them:
-      # OPENAI_API_KEY
-      # CINETPAY_API_KEY / CINETPAY_SITE_ID
 
 databases:
   - name: afrios-db

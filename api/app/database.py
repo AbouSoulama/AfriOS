@@ -47,6 +47,14 @@ def _ensure_business_payment_columns(sync_conn) -> None:
                 "cinetpay_enabled",
                 "BOOLEAN DEFAULT 0" if dialect == "sqlite" else "BOOLEAN DEFAULT FALSE",
             ),
+            ("fedapay_secret_key", "TEXT"),
+            ("fedapay_public_key", "TEXT"),
+            (
+                "fedapay_enabled",
+                "BOOLEAN DEFAULT 0" if dialect == "sqlite" else "BOOLEAN DEFAULT FALSE",
+            ),
+            ("plan_id", "VARCHAR(32) DEFAULT 'free'"),
+            ("plan_expires_at", "TIMESTAMP" if dialect == "sqlite" else "TIMESTAMPTZ"),
         ]
         for name, typ in patches:
             if name not in cols:

@@ -246,4 +246,31 @@ class ApiClient {
     final res = await _dio.get('/payments');
     return res.data as List<dynamic>;
   }
+
+  Future<Map<String, dynamic>> getBillingPlans() async {
+    final res = await _dio.get('/billing/plans');
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getCurrentSubscription() async {
+    final res = await _dio.get('/billing/current');
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> subscribePlan(String planId) async {
+    final res =
+        await _dio.post('/billing/subscribe', data: {'plan_id': planId});
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> confirmSubscription({
+    required String transactionId,
+    String? planId,
+  }) async {
+    final res = await _dio.post('/billing/confirm', data: {
+      'transaction_id': transactionId,
+      if (planId != null) 'plan_id': planId,
+    });
+    return res.data as Map<String, dynamic>;
+  }
 }
