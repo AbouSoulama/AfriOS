@@ -16,9 +16,9 @@ async def otp_send(body: OtpSendRequest, db: AsyncSession = Depends(get_db)):
         message, dev_code, channel = await send_otp(
             db,
             body.phone,
-            default_country=(body.country_code or "SN").upper(),
+            default_country=(body.country_code or "BF").upper(),
         )
-        phone = normalize_phone(body.phone, default_country=(body.country_code or "SN").upper())
+        phone = normalize_phone(body.phone, default_country=(body.country_code or "BF").upper())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -38,7 +38,7 @@ async def otp_verify(body: OtpVerifyRequest, db: AsyncSession = Depends(get_db))
             db,
             body.phone,
             body.code,
-            default_country=(body.country_code or "SN").upper(),
+            default_country=(body.country_code or "BF").upper(),
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

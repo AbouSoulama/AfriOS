@@ -18,14 +18,17 @@ from app.models import (
 from app.services.invoice_service import build_whatsapp_message, whatsapp_share_url
 
 
+# L'ORDRE COMPTE : le premier intent dont un motif correspond l'emporte.
+# Les intents précis passent avant « revenue_period », dont le motif « factur » est très large
+# (sinon « Factures impayées ? » répondait avec le chiffre d'affaires).
 INTENT_PATTERNS: dict[str, list[str]] = {
-    "revenue_period": [
-        r"chiffre", r"ca\b", r"factur", r"revenu", r"combien.*mois", r"combien.*aujourd",
-    ],
-    "unpaid_invoices": [r"impay", r"attente", r"non pay", r"en cours"],
-    "low_stock": [r"stock faible", r"rupture", r"presque fini", r"stock bas"],
-    "overdue_clients": [r"relanc", r"retard", r"en retard", r"qui dois"],
+    "low_stock": [r"stock faible", r"rupture", r"presque fini", r"stock bas", r"stock"],
     "invoice_count": [r"combien de facture", r"nombre de facture"],
+    "unpaid_invoices": [r"impay", r"attente", r"non pay", r"en cours"],
+    "overdue_clients": [r"relanc", r"retard", r"en retard", r"qui dois"],
+    "revenue_period": [
+        r"chiffre", r"\bca\b", r"factur", r"revenu", r"encaiss", r"combien.*mois", r"combien.*aujourd",
+    ],
 }
 
 
@@ -35,8 +38,6 @@ def detect_intent(message: str) -> str | None:
         for pattern in patterns:
             if re.search(pattern, msg):
                 return intent
-    if re.search(r"relanc", msg) and re.search(r"\w+", msg):
-        return "send_reminder"
     return None
 
 
@@ -50,14 +51,25 @@ async def handle_intent(
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     if intent == "revenue_period":
-        result = await db.execute(
+        # Facturé = factures émises ce mois (hors brouillons / annulées).
+        invoiced = await db.execute(
             select(func.coalesce(func.sum(Invoice.total), 0)).where(
                 Invoice.business_id == business.id,
-                Invoice.status.in_([InvoiceStatus.paid, InvoiceStatus.sent]),
+                Invoice.status.in_([InvoiceStatus.paid, InvoiceStatus.sent, InvoiceStatus.overdue]),
                 Invoice.created_at >= month_start,
             )
         )
-        total = result.scalar() or Decimal("0")
+        invoiced_total = invoiced.scalar() or Decimal("0")
+
+        # Encaissé = factures réellement payées ce mois (même définition que le tableau de bord).
+        collected = await db.execute(
+            select(func.coalesce(func.sum(Invoice.total), 0)).where(
+                Invoice.business_id == business.id,
+                Invoice.status == InvoiceStatus.paid,
+                Invoice.paid_at >= month_start,
+            )
+        )
+        collected_total = collected.scalar() or Decimal("0")
 
         pending = await db.execute(
             select(func.count(), func.coalesce(func.sum(Invoice.total), 0)).where(
@@ -67,8 +79,9 @@ async def handle_intent(
         )
         count, pending_total = pending.one()
         return (
-            f"Tu as facturé {total:,.0f} {business.currency} ce mois-ci.\n"
-            f"{count or 0} facture(s) en attente ({pending_total or 0:,.0f} {business.currency}).",
+            f"Ce mois-ci : {invoiced_total:,.0f} {business.currency} facturé, "
+            f"{collected_total:,.0f} {business.currency} encaissé.\n"
+            f"{count or 0} facture(s) en attente de paiement ({pending_total or 0:,.0f} {business.currency}).",
             None,
         )
 

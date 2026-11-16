@@ -220,6 +220,8 @@ class PaymentSettingsResponse(BaseModel):
     secret_key_set: bool = False
     enabled: bool = False
     sandbox_mode: bool = True
+    # True si l'encaissement Mobile Money peut fonctionner (clés du commerçant, ou mode test serveur).
+    ready: bool = False
     using_platform_keys: bool = False
     callback_url: str = ""
     return_url: str = ""

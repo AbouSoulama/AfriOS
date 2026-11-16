@@ -18,13 +18,34 @@ async def _auth_headers(client, phone: str | None = None) -> dict[str, str]:
 
 
 @pytest.mark.asyncio
-async def test_daily_job_creates_auto_reminder(client):
-    headers = await _auth_headers(client)
-    await client.post(
-        "/v1/business",
-        headers=headers,
-        json={"name": "Relance Shop", "currency": "XOF"},
+async def test_free_plan_gets_no_auto_reminders(client, account):
+    """Les relances automatiques sont une fonction du plan Pro (le plan Gratuit reste manuel)."""
+    headers = await account(name="Relance Gratuit")
+    await client.put(
+        "/v1/reminders/rules", headers=headers, json={"enabled": True, "days_after_due": [3]}
     )
+    client_res = await client.post(
+        "/v1/clients", headers=headers, json={"name": "Moussa", "phone": "+221770000003"}
+    )
+    due = (date.today() - timedelta(days=3)).isoformat()
+    inv = await client.post(
+        "/v1/invoices",
+        headers=headers,
+        json={
+            "client_id": client_res.json()["id"],
+            "due_date": due,
+            "items": [{"description": "Service", "quantity": 1, "unit_price": 5000, "discount": 0}],
+        },
+    )
+    await client.post(f"/v1/invoices/{inv.json()['id']}/send", headers=headers)
+    job = await client.post("/v1/jobs/daily", headers={"X-Cron-Secret": "dev-cron-secret"})
+    assert job.status_code == 200
+    assert job.json()["reminders_created"] == 0
+
+
+@pytest.mark.asyncio
+async def test_daily_job_creates_auto_reminder(client, account):
+    headers = await account(plan="pro", name="Relance Shop")
     await client.put(
         "/v1/reminders/rules",
         headers=headers,

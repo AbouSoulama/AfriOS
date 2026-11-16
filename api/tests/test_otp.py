@@ -17,6 +17,11 @@ def test_normalize_phone_ivory_coast():
     assert normalize_phone("0700000000", default_country="CI") == "+225700000000"
 
 
+def test_normalize_phone_burkina():
+    assert normalize_phone("70 12 34 56", default_country="BF") == "+22670123456"
+    assert normalize_phone("+22670123456") == "+22670123456"
+
+
 def test_mask_phone():
     assert "•••" in mask_phone("+221771234567")
 

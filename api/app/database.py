@@ -55,6 +55,7 @@ def _ensure_business_payment_columns(sync_conn) -> None:
             ),
             ("plan_id", "VARCHAR(32) DEFAULT 'free'"),
             ("plan_expires_at", "TIMESTAMP" if dialect == "sqlite" else "TIMESTAMPTZ"),
+            ("plan_payment_ref", "VARCHAR(100)"),
         ]
         for name, typ in patches:
             if name not in cols:

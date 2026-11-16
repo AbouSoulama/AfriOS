@@ -1,4 +1,4 @@
-# Guide Beta — AfriOS MVP (Sénégal & Côte d'Ivoire)
+# Guide Beta — AfriOS MVP (Afrique de l'Ouest)
 
 ## Objectif beta
 
@@ -9,14 +9,15 @@ Valider le produit avec **50 commerçants** avant publication Play Store.
 - Boutique, restaurant ou prestataire de services
 - Android 8.0+
 - Utilise déjà WhatsApp pour la facturation
-- Sénégal (+221) ou Côte d'Ivoire (+225)
+- Afrique de l'Ouest (Burkina Faso +226, Sénégal +221, Côte d'Ivoire +225, etc.)
 
 ## Checklist QA avant beta
 
 ### Fonctionnel
 - [x] Inscription OTP complète (dev mode + chemin SMS Africa's Talking)
 - [x] Création client + facture + partage WhatsApp
-- [x] Paiement CinetPay sandbox → statut Payée
+- [x] Paiement FedaPay sandbox (clés du commerçant) → statut Payée
+- [x] Abonnement Pro (clés plateforme) → plan activé, expiration à 30 jours
 - [x] Marquage manuel paiement espèces
 - [x] Relance manuelle WhatsApp
 - [x] Assistant IA : CA du mois, stock faible
@@ -29,7 +30,7 @@ Valider le produit avec **50 commerçants** avant publication Play Store.
 1. Compte [Africa's Talking](https://account.africastalking.com/)
 2. Render : `AFRICAS_TALKING_API_KEY` + `AFRICAS_TALKING_USERNAME` (+ sender optionnel)
 3. `OTP_DEV_MODE=false`
-4. Tester SMS réel SN (+221) / CI (+225)
+4. Tester SMS réel BF (+226) / SN (+221) / CI (+225)
 
 ### UI
 - [x] Navigation 5 onglets fluide
@@ -67,5 +68,6 @@ Valider le produit avec **50 commerçants** avant publication Play Store.
 ## Support beta
 
 - Groupe WhatsApp dédié
-- Numéro support : +221 XX XXX XX XX
+- WhatsApp support : +226 04 04 61 90
+- Email : info.afrios@gmail.com
 - Formulaire feedback in-app (Paramètres → Aide)

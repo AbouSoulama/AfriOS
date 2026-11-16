@@ -380,7 +380,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(content: Text('$e')));
+                            .showSnackBar(SnackBar(content: Text(ApiConfig.friendlyError(e))));
                       }
                     } finally {
                       if (mounted) setState(() => _loading = false);
@@ -461,7 +461,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+            .showSnackBar(SnackBar(content: Text(ApiConfig.friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -481,7 +481,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             error: (e, _) => AfriEmptyState(
               icon: Icons.inventory_2_outlined,
               title: 'Erreur',
-              subtitle: '$e',
+              subtitle: ApiConfig.friendlyError(e),
               actionLabel: 'Retour',
               onAction: () => context.pop(),
             ),

@@ -1,11 +1,15 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../app/shell.dart';
 import '../../core/network/api_client.dart';
+import '../../core/network/api_config.dart';
 import '../../core/theme/afri_colors.dart';
+import '../../core/widgets/afri_button.dart';
 import '../../core/widgets/afri_components.dart';
 import '../../core/widgets/afri_motion.dart';
 import '../../core/widgets/afri_premium.dart';
@@ -23,6 +27,7 @@ class _AiScreenState extends ConsumerState<AiScreen> {
   final _messages = <({String text, bool isUser})>[];
   String? _conversationId;
   bool _loading = false;
+  bool _needsUpgrade = false;
   List<String> _suggestions = [];
 
   @override
@@ -88,9 +93,14 @@ class _AiScreenState extends ConsumerState<AiScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      // 402 = l'assistant IA est réservé au plan Pro : on l'explique et on propose l'abonnement.
+      final needsUpgrade = e is DioException && e.response?.statusCode == 402;
       setState(() {
+        _needsUpgrade = needsUpgrade;
         _messages.add((
-          text: 'Désolé, une erreur est survenue. Réessaie.',
+          text: needsUpgrade
+              ? ApiConfig.friendlyError(e)
+              : 'Désolé, une erreur est survenue. Réessaie.',
           isUser: false
         ));
       });
@@ -162,7 +172,17 @@ class _AiScreenState extends ConsumerState<AiScreen> {
                 },
               ),
             ),
-            if (_suggestions.isNotEmpty)
+            if (_needsUpgrade)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AfriSpace.md, vertical: AfriSpace.xs),
+                child: AfriButton(
+                  label: 'Découvrir le plan Pro',
+                  icon: Icons.workspace_premium_outlined,
+                  onPressed: () => context.push('/settings/subscription'),
+                ),
+              ),
+            if (_suggestions.isNotEmpty && !_needsUpgrade)
               SizedBox(
                 height: 44,
                 child: ListView.separated(

@@ -92,7 +92,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         sliver: SliverList(
                           delegate: SliverChildListDelegate([
                             AfriKPICard(
-                              label: 'Chiffre d\'affaires ce mois',
+                              label: 'Encaissé ce mois',
                               value: '${data['revenue_month']}',
                               isAmount: true,
                               trend: asDoubleOrNull(
@@ -623,7 +623,7 @@ class _AddClientScreenState extends ConsumerState<AddClientScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+            .showSnackBar(SnackBar(content: Text(ApiConfig.friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _loadingInitial = false);
@@ -696,7 +696,7 @@ class _AddClientScreenState extends ConsumerState<AddClientScreen> {
                         controller: _phone,
                         decoration: const InputDecoration(
                           labelText: 'Téléphone (WhatsApp)',
-                          hintText: '+221 77 000 00 00',
+                          hintText: '+226 70 00 00 00',
                         ),
                         keyboardType: TextInputType.phone,
                       ),
@@ -783,7 +783,7 @@ class _AddClientScreenState extends ConsumerState<AddClientScreen> {
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context)
-                                  .showSnackBar(SnackBar(content: Text('$e')));
+                                  .showSnackBar(SnackBar(content: Text(ApiConfig.friendlyError(e))));
                             }
                           } finally {
                             if (mounted) setState(() => _loading = false);

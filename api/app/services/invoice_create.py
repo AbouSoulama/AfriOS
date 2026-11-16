@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Business, Client, Invoice, InvoiceItem, InvoiceStatus, Product
 from app.services.invoice_service import calculate_invoice_totals, next_invoice_number
+from app.services.plan_limits import ensure_can_create_invoice
 
 
 async def create_invoice_from_payload(
@@ -17,6 +18,8 @@ async def create_invoice_from_payload(
     client_id: UUID | None = None,
 ) -> Invoice:
     """Shared invoice creation for HTTP create + offline sync push."""
+    await ensure_can_create_invoice(db, business)
+
     resolved_client_id = client_id
     if resolved_client_id is None:
         raw = payload.get("client_id")

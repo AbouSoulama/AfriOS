@@ -17,6 +17,7 @@ from app.models import (
 )
 from app.services.fcm_service import send_push_notification
 from app.services.invoice_service import whatsapp_share_url
+from app.services.plan_limits import auto_reminders_allowed
 
 
 async def get_or_create_reminder_rule(db: AsyncSession, business_id) -> ReminderRule:
@@ -103,6 +104,9 @@ async def process_auto_reminders(db: AsyncSession) -> dict:
         biz_result = await db.execute(select(Business).where(Business.id == rule.business_id))
         business = biz_result.scalar_one_or_none()
         if not business:
+            continue
+        # Les relances automatiques sont une fonction du plan Pro.
+        if not auto_reminders_allowed(business):
             continue
 
         tokens_result = await db.execute(

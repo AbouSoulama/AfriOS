@@ -26,8 +26,8 @@ _COUNTRY_DIAL = {
 }
 
 
-def normalize_phone(phone: str, default_country: str = "SN") -> str:
-    """Normalize to E.164 (+221… / +225…)."""
+def normalize_phone(phone: str, default_country: str = "BF") -> str:
+    """Normalize to E.164 (+226… / +221… / +225…)."""
     raw = phone.strip()
     digits = re.sub(r"\D", "", raw)
     if not digits:
@@ -41,7 +41,7 @@ def normalize_phone(phone: str, default_country: str = "SN") -> str:
         if digits.startswith(dial) and len(digits) >= len(dial) + 7:
             return f"+{digits}"
 
-    dial = _COUNTRY_DIAL.get(default_country.upper(), "221")
+    dial = _COUNTRY_DIAL.get(default_country.upper(), "226")
     # Drop leading 0 from national numbers (77… / 07…)
     national = digits[1:] if digits.startswith("0") else digits
     if len(national) < 7:
@@ -55,15 +55,21 @@ def mask_phone(phone: str) -> str:
     return f"{phone[:4]}•••{phone[-3:]}"
 
 
+def _using_at_sandbox() -> bool:
+    username = (settings.africas_talking_username or "").strip().lower()
+    return bool(settings.africas_talking_sandbox or username == "sandbox")
+
+
 async def send_otp(
     db: AsyncSession,
     phone: str,
     *,
-    default_country: str = "SN",
+    default_country: str = "BF",
 ) -> tuple[str, str | None, str]:
     """Send OTP via Africa's Talking and/or return a dev code.
 
-    Returns (message, dev_code, channel) where channel is sms | dev | sms+dev.
+    Returns (message, dev_code, channel) where channel is
+    sms | dev | sms+dev | sms+sandbox.
     """
     phone = normalize_phone(phone, default_country=default_country)
     now = datetime.now(timezone.utc)
@@ -91,8 +97,10 @@ async def send_otp(
     await db.flush()
 
     has_sms_creds = bool(
-        settings.africas_talking_api_key.strip() and settings.africas_talking_username.strip()
+        (settings.africas_talking_api_key or "").strip()
+        and (settings.africas_talking_username or "").strip()
     )
+    sandbox = _using_at_sandbox()
     sms_ok = False
     sms_error: str | None = None
 
@@ -115,6 +123,17 @@ async def send_otp(
         raise ValueError(
             "OTP SMS non configuré. Définis AFRICAS_TALKING_API_KEY / USERNAME "
             "ou active OTP_DEV_MODE pour les tests."
+        )
+
+    # Sandbox AT never delivers to a real handset — only the simulator.
+    # Return the code in-app so login still works while testing.
+    if sandbox and has_sms_creds and not settings.otp_dev_mode:
+        return (
+            "Sandbox Africa's Talking : le SMS n'arrive PAS sur ton téléphone. "
+            "Lis le code ici, ou ouvre https://simulator.africastalking.com:1517/ "
+            f"avec le numéro {mask_phone(phone)}.",
+            code,
+            "sms+sandbox",
         )
 
     if settings.otp_dev_mode:
@@ -197,7 +216,7 @@ async def _send_sms_africas_talking(phone: str, message: str) -> None:
         raise RuntimeError(payload["errorMessage"])
 
 
-async def verify_otp(db: AsyncSession, phone: str, code: str, *, default_country: str = "SN") -> User:
+async def verify_otp(db: AsyncSession, phone: str, code: str, *, default_country: str = "BF") -> User:
     phone = normalize_phone(phone, default_country=default_country)
     now = datetime.now(timezone.utc)
     code = code.strip()

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -557,7 +558,7 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Erreur : $e')));
+          .showSnackBar(SnackBar(content: Text(ApiConfig.friendlyError(e))));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -593,6 +594,100 @@ class InvoiceDetailScreen extends ConsumerStatefulWidget {
 
 class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
   bool _busy = false;
+
+  /// Crée le lien Mobile Money et propose de l'ENVOYER AU CLIENT.
+  /// C'est le client qui paie : le commerçant n'ouvre pas ce lien pour lui-même.
+  Future<void> _createPaymentLink(Map<String, dynamic> inv) async {
+    setState(() => _busy = true);
+    try {
+      final res =
+          await ref.read(apiClientProvider).initiatePayment(widget.invoiceId);
+      final link = res['payment_link'] as String?;
+      final sandbox = res['sandbox_mock'] as bool? ?? false;
+      if (link == null || link.isEmpty) {
+        throw Exception('Aucun lien de paiement reçu du serveur');
+      }
+      if (!mounted) return;
+      await _showPaymentLinkSheet(inv, link, sandbox);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(ApiConfig.friendlyError(e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _showPaymentLinkSheet(
+      Map<String, dynamic> inv, String link, bool sandbox) {
+    final clientName = inv['client_name'] as String? ?? 'Client';
+    final number = inv['number'] as String? ?? '';
+    final total = asDouble(inv['total']).toStringAsFixed(0);
+    final message =
+        'Bonjour $clientName, voici le lien pour régler la facture $number '
+        '($total FCFA) par Mobile Money : $link';
+
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Lien de paiement pour $clientName',
+                  style: Theme.of(sheetContext).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              const Text(
+                'Envoie ce lien à ton client : c’est lui qui paie, et l’argent '
+                'arrive sur ton compte Mobile Money. Ensuite, reviens ici et '
+                'appuie sur « Vérifier l’encaissement ».',
+                style: TextStyle(color: AfriColors.slate, height: 1.4),
+              ),
+              const SizedBox(height: 18),
+              AfriButton(
+                label: 'Envoyer au client',
+                icon: Icons.send_rounded,
+                onPressed: () =>
+                    Share.share(message, subject: 'Facture $number'),
+              ),
+              const SizedBox(height: 10),
+              AfriButton(
+                label: 'Copier le lien',
+                icon: Icons.copy_rounded,
+                variant: AfriButtonVariant.secondary,
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: link));
+                  if (sheetContext.mounted) {
+                    ScaffoldMessenger.of(sheetContext).showSnackBar(
+                      const SnackBar(content: Text('Lien copié')),
+                    );
+                  }
+                },
+              ),
+              if (sandbox) ...[
+                const SizedBox(height: 10),
+                AfriButton(
+                  label: 'Mode test : simuler le paiement du client',
+                  icon: Icons.science_outlined,
+                  variant: AfriButtonVariant.ghost,
+                  onPressed: () => openExternalUrl(
+                    sheetContext,
+                    link,
+                    successMessage:
+                        'Page de test ouverte : tu joues le rôle du client. Confirme, puis reviens vérifier l’encaissement.',
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -704,46 +799,23 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                         ),
                         const SizedBox(height: 24),
                         if (!isPaid) ...[
-                          AfriButton(
-                            label: 'Payer via Mobile Money',
-                            isLoading: _busy,
-                            onPressed: () async {
-                              setState(() => _busy = true);
-                              try {
-                                final res = await ref
-                                    .read(apiClientProvider)
-                                    .initiatePayment(widget.invoiceId);
-                                final link = res['payment_link'] as String?;
-                                final sandbox =
-                                    res['sandbox_mock'] as bool? ?? false;
-                                if (link == null || link.isEmpty) {
-                                  throw Exception(
-                                      'Aucun lien de paiement reçu du serveur');
-                                }
-                                if (!context.mounted) return;
-                                await openExternalUrl(
-                                  context,
-                                  link,
-                                  successMessage: sandbox
-                                      ? 'Sandbox ouvert — confirme le paiement puis appuie sur Vérifier.'
-                                      : 'Page de paiement ouverte. Reviens puis appuie sur Vérifier.',
-                                );
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content: Text('Erreur paiement : $e')),
-                                  );
-                                }
-                              } finally {
-                                if (mounted) setState(() => _busy = false);
-                              }
-                            },
+                          const AfriSectionHeader(
+                            title: 'Encaissement',
+                            subtitle:
+                                'C’est ton client qui paie. Toi, tu suis ou tu confirmes l’encaissement.',
                           ),
                           const SizedBox(height: 12),
                           AfriButton(
-                            label: 'Vérifier le paiement',
+                            label: 'Envoyer le lien de paiement au client',
+                            icon: Icons.send_rounded,
+                            isLoading: _busy,
+                            onPressed: () => _createPaymentLink(inv),
+                          ),
+                          const SizedBox(height: 12),
+                          AfriButton(
+                            label: 'Vérifier l’encaissement',
                             variant: AfriButtonVariant.secondary,
+                            icon: Icons.refresh_rounded,
                             isLoading: _busy,
                             onPressed: () async {
                               setState(() => _busy = true);
@@ -758,9 +830,9 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                                 if (context.mounted) {
                                   final msg = switch (status) {
                                     'paid' || 'already_paid' =>
-                                      'Paiement confirmé — facture payée',
+                                      'Encaissement confirmé — facture payée',
                                     'pending' =>
-                                      'Paiement encore en attente',
+                                      'Le client n’a pas encore payé',
                                     _ => 'Statut : $status',
                                   };
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -770,7 +842,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                               } catch (e) {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Erreur : $e')),
+                                    SnackBar(content: Text(ApiConfig.friendlyError(e))),
                                   );
                                 }
                               } finally {
@@ -780,8 +852,9 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                           ),
                           const SizedBox(height: 12),
                           AfriButton(
-                            label: 'Marquer comme payé (espèces)',
+                            label: 'Client a payé en espèces',
                             variant: AfriButtonVariant.ghost,
+                            icon: Icons.payments_outlined,
                             isLoading: _busy,
                             onPressed: () async {
                               setState(() => _busy = true);
@@ -802,7 +875,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                               } catch (e) {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Erreur : $e')),
+                                    SnackBar(content: Text(ApiConfig.friendlyError(e))),
                                   );
                                 }
                               } finally {
@@ -812,8 +885,9 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                           ),
                           const SizedBox(height: 12),
                           AfriButton(
-                            label: 'Envoyer une relance',
+                            label: 'Relancer le client',
                             variant: AfriButtonVariant.ghost,
+                            icon: Icons.chat_outlined,
                             isLoading: _busy,
                             onPressed: () async {
                               setState(() => _busy = true);
@@ -832,7 +906,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                        content: Text('Erreur relance : $e')),
+                                        content: Text(ApiConfig.friendlyError(e))),
                                   );
                                 }
                               } finally {
@@ -852,9 +926,12 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                                 Icon(Icons.check_circle,
                                     color: AfriColors.teal),
                                 SizedBox(width: 10),
-                                Text(
-                                  'Cette facture est payée',
-                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                Expanded(
+                                  child: Text(
+                                    'Encaissée — ton client a payé cette facture',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w700),
+                                  ),
                                 ),
                               ],
                             ),

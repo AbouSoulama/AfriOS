@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlencode, urlparse, urlunparse
 
 import httpx
 
@@ -30,16 +30,33 @@ class FedaPayCredentials:
         return "https://api.fedapay.com/v1"
 
 
-def resolve_credentials(business: Business | None = None) -> FedaPayCredentials:
-    secret = ""
-    public = ""
-    if business is not None:
-        secret = (getattr(business, "fedapay_secret_key", None) or "").strip()
-        public = (getattr(business, "fedapay_public_key", None) or "").strip()
-    if not secret:
+class PaymentConfigError(ValueError):
+    """Le paiement Mobile Money n'est pas configuré (action requise côté commerçant/serveur)."""
+
+
+def mock_allowed() -> bool:
+    """Le paiement simulé (page sandbox AfriOS) n'est permis qu'en mode sandbox du serveur."""
+    return bool(settings.fedapay_sandbox)
+
+
+def resolve_credentials(
+    business: Business | None = None, *, scope: str = "invoice"
+) -> FedaPayCredentials:
+    """Choisit les clés FedaPay selon QUI doit recevoir l'argent.
+
+    - scope="invoice"      : le client paie le COMMERÇANT  -> clés du commerçant uniquement.
+    - scope="subscription" : le commerçant paie AFRIOS     -> clés de la plateforme uniquement.
+
+    Avant, les clés de la plateforme servaient aussi de repli pour les factures (l'argent des
+    clients tombait chez AfriOS) et les clés du commerçant servaient pour son abonnement
+    (il se payait lui-même).
+    """
+    if scope == "subscription":
         secret = (settings.fedapay_secret_key or "").strip()
-    if not public:
         public = (settings.fedapay_public_key or "").strip()
+    else:
+        secret = (getattr(business, "fedapay_secret_key", None) or "").strip() if business else ""
+        public = (getattr(business, "fedapay_public_key", None) or "").strip() if business else ""
     return FedaPayCredentials(
         secret_key=secret,
         public_key=public,
@@ -84,10 +101,8 @@ def sandbox_checkout_url(
     public_origin: str | None = None,
 ) -> str:
     origin = (public_origin or public_api_origin()).rstrip("/")
-    return (
-        f"{origin}/v1/payments/sandbox/checkout"
-        f"?ref={transaction_id}&amount={amount}&invoice={invoice_number}"
-    )
+    query = urlencode({"ref": transaction_id, "amount": amount, "invoice": invoice_number})
+    return f"{origin}/v1/payments/sandbox/checkout?{query}"
 
 
 def _split_phone(phone: str, country_code: str = "SN") -> tuple[str, str]:
@@ -141,9 +156,14 @@ async def create_payment_link(
     Returns (payment_url, transaction_ref, is_sandbox_mock).
     """
     transaction_ref = f"AFRI-{invoice.id.hex[:12].upper()}"
-    creds = resolve_credentials(business)
+    creds = resolve_credentials(business, scope="invoice")
 
     if not creds.configured:
+        if not mock_allowed():
+            raise PaymentConfigError(
+                "Mobile Money non configuré : ajoute tes clés FedaPay dans "
+                "Paramètres → Encaissement clients pour que tes clients puissent payer en ligne."
+            )
         mock_url = sandbox_checkout_url(
             transaction_ref,
             invoice.total,
@@ -215,9 +235,13 @@ async def create_subscription_payment_link(
     public_origin: str | None = None,
 ) -> tuple[str, str, bool]:
     transaction_ref = f"SUB-{plan_id.upper()}-{business.id.hex[:10].upper()}"
-    creds = resolve_credentials(business)
+    creds = resolve_credentials(business, scope="subscription")
 
     if not creds.configured:
+        if not mock_allowed():
+            raise PaymentConfigError(
+                "Le paiement des abonnements AfriOS n'est pas encore activé. Réessaie plus tard."
+            )
         mock_url = sandbox_checkout_url(
             transaction_ref,
             amount,
@@ -277,10 +301,18 @@ async def create_subscription_payment_link(
     return payment_url, f"FEDA-{tx_id}", False
 
 
-async def verify_fedapay_transaction(transaction_ref: str, business: Business | None = None) -> dict:
-    creds = resolve_credentials(business)
+async def verify_fedapay_transaction(
+    transaction_ref: str,
+    business: Business | None = None,
+    *,
+    scope: str = "invoice",
+) -> dict:
+    creds = resolve_credentials(business, scope=scope)
     if not creds.configured:
-        return {"status": "approved", "transaction_id": transaction_ref, "mock": True}
+        # Pas de clés = paiement simulé. On ne déclare JAMAIS « approuvé » ici : sinon n'importe
+        # qui pourrait valider une facture ou un abonnement sans payer. En sandbox, c'est la page
+        # de confirmation sandbox (endpoint dédié) qui marque le paiement comme réglé.
+        return {"status": "pending", "transaction_id": transaction_ref, "mock": True}
 
     # Ref format FEDA-{id}
     tx_id = transaction_ref.replace("FEDA-", "").strip()
@@ -304,7 +336,16 @@ async def verify_fedapay_transaction(transaction_ref: str, business: Business | 
         }
 
 
+def transaction_metadata(verification: dict) -> dict:
+    """custom_metadata de la transaction FedaPay vérifiée (vide si absente)."""
+    raw = verification.get("raw") or {}
+    meta = raw.get("custom_metadata") or raw.get("metadata") or {}
+    return meta if isinstance(meta, dict) else {}
+
+
 def payment_accepted(verification: dict) -> bool:
+    if verification.get("mock"):
+        return False
     status = (verification.get("status") or "").lower()
     return status in {
         "approved",

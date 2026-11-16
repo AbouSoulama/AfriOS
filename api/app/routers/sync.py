@@ -20,6 +20,7 @@ from app.models import (
 )
 from app.schemas import FcmTokenRequest, NotificationResponse, SyncPullResponse, SyncPushRequest
 from app.services.invoice_create import create_invoice_from_payload
+from app.services.plan_limits import ensure_can_create_client
 
 router = APIRouter(tags=["sync", "notifications"])
 
@@ -58,6 +59,7 @@ async def sync_push(
 
         try:
             if op.entity_type == "client" and op.operation == "create":
+                await ensure_can_create_client(db, business)
                 payload = op.payload
                 client = Client(
                     business_id=business.id,

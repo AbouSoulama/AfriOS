@@ -2,6 +2,7 @@ import base64
 from datetime import datetime, timezone
 from uuid import UUID
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
@@ -144,7 +145,9 @@ async def send_invoice(
         inv.payment_link = payment_link
         inv.payment_external_ref = ext_ref
         await ensure_pending_payment(db, inv, business, ext_ref)
-    except Exception:
+    except (ValueError, httpx.HTTPError):
+        # Mobile Money non configuré ou FedaPay injoignable : la facture part quand même,
+        # sans lien de paiement (le commerçant peut encaisser en espèces ou réessayer le lien).
         payment_link = None
 
     inv.status = InvoiceStatus.sent
@@ -183,7 +186,12 @@ async def mark_paid(
     db: AsyncSession = Depends(get_db),
 ):
     inv, client_name = await _get_invoice_with_client(db, business.id, invoice_id)
+    if inv.status == InvoiceStatus.paid:
+        # Idempotent : un second appel ne doit pas créer un deuxième paiement (CA doublé).
+        return _invoice_response(inv, client_name)
     amount = body.amount or inv.total
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Montant invalide")
     method = PaymentMethod(body.method) if body.method in PaymentMethod.__members__ else PaymentMethod.cash
 
     db.add(Payment(

@@ -8,6 +8,7 @@ from app.database import get_db
 from app.deps import get_current_business
 from app.models import Business, Client, Invoice, InvoiceStatus
 from app.schemas import ClientCreate, ClientResponse, ClientUpdate
+from app.services.plan_limits import ensure_can_create_client
 
 router = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -56,6 +57,7 @@ async def create_client(
     business: Business = Depends(get_current_business),
     db: AsyncSession = Depends(get_db),
 ):
+    await ensure_can_create_client(db, business)
     client = Client(business_id=business.id, **body.model_dump(exclude={"client_op_id"}))
     db.add(client)
     await db.flush()

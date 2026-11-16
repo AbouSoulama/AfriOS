@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     cinetpay_return_url: str = "afrios://payment/success"
     cinetpay_sandbox: bool = True
     public_base_url: str = ""
+    # Appliquer les limites des plans Gratuit / Pro (factures, clients, IA, relances auto).
+    # Mettre PLANS_ENFORCED=false pour ouvrir toutes les fonctions pendant la bêta.
+    plans_enforced: bool = False
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     firebase_credentials_path: str = ""

@@ -11,6 +11,7 @@ from app.deps import get_current_business
 from app.models import AiConversation, Business
 from app.schemas import AiChatRequest, AiChatResponse
 from app.services.ai_service import chat_with_ai
+from app.services.plan_limits import ensure_ai_enabled
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -33,6 +34,8 @@ async def ai_chat(
     business: Business = Depends(get_current_business),
     db: AsyncSession = Depends(get_db),
 ):
+    ensure_ai_enabled(business)
+
     openai_client = None
     if settings.openai_api_key:
         openai_client = AsyncOpenAI(api_key=settings.openai_api_key)

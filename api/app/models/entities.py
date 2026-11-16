@@ -108,7 +108,9 @@ class Business(Base):
     # Subscription
     plan_id: Mapped[str] = mapped_column(String(32), default="free")
     plan_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    # FedaPay merchant keys (optional per-business)
+    # Dernière transaction d'abonnement appliquée (empêche de rejouer un même paiement).
+    plan_payment_ref: Mapped[str | None] = mapped_column(String(100))
+    # FedaPay merchant keys (optional per-business) — l'argent des clients arrive sur CE compte
     fedapay_secret_key: Mapped[str | None] = mapped_column(Text)
     fedapay_public_key: Mapped[str | None] = mapped_column(Text)
     fedapay_enabled: Mapped[bool] = mapped_column(Boolean, default=False)

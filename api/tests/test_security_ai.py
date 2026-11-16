@@ -38,9 +38,8 @@ async def test_clients_are_isolated_between_businesses(client):
 
 
 @pytest.mark.asyncio
-async def test_ai_chat_revenue_intent(client):
-    headers = await _login(client, f"+22173{uuid.uuid4().hex[:8]}")
-    await client.post("/v1/business", headers=headers, json={"name": "AI Shop", "currency": "XOF"})
+async def test_ai_chat_revenue_intent(client, account):
+    headers = await account(plan="pro", name="AI Shop")
 
     chat = await client.post(
         "/v1/ai/chat",

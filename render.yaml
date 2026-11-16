@@ -41,6 +41,9 @@ services:
         value: https://afrios-api.onrender.com
       - key: JOBS_CRON_SECRET
         generateValue: true
+      # Bêta : limites des plans désactivées (mettre "true" pour les appliquer).
+      - key: PLANS_ENFORCED
+        value: "false"
 
 databases:
   - name: afrios-db

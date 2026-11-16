@@ -14,7 +14,6 @@ import '../../core/theme/afri_colors.dart';
 import '../../core/widgets/afri_button.dart';
 import '../../core/widgets/afri_logo.dart';
 import '../../core/widgets/afri_motion.dart';
-import '../../core/widgets/afri_premium.dart';
 import 'auth_provider.dart';
 
 class _WelcomeSlide {
@@ -420,7 +419,7 @@ class PhoneScreen extends ConsumerStatefulWidget {
 class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   final _formKey = GlobalKey<FormState>();
   PhoneNumber? _phoneNumber;
-  String _isoCountry = 'SN';
+  String _isoCountry = 'BF';
   bool _loading = false;
 
   String? _validatePhone(PhoneNumber? phone) {
@@ -486,7 +485,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                         labelText: 'Téléphone',
                         hintText: '77 123 45 67',
                       ),
-                      initialCountryCode: 'SN',
+                      initialCountryCode: 'BF',
                       disableLengthCheck: true,
                       onChanged: (phone) {
                         _phoneNumber = phone;
@@ -669,7 +668,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final smsSent = _channel == 'sms' || _channel == 'sms+dev';
+    final smsSent =
+        _channel == 'sms' || _channel == 'sms+dev' || _channel == 'sms+sandbox';
+    final isSandbox = _channel == 'sms+sandbox';
 
     return Scaffold(
       body: AfriMeshBackground(
@@ -726,9 +727,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              smsSent
-                                  ? 'Mode dev — code aussi envoyé par SMS'
-                                  : 'Mode développement',
+                              isSandbox
+                                  ? 'Sandbox — pas de SMS réel. Utilise ce code :'
+                                  : smsSent
+                                      ? 'Mode dev — code aussi envoyé par SMS'
+                                      : 'Mode développement',
                               style: GoogleFonts.dmSans(
                                 color: Colors.white.withValues(alpha: 0.85),
                                 fontSize: 12,
@@ -845,18 +848,20 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
   final _nameController = TextEditingController();
   final _taxController = TextEditingController(text: '0');
   String _sector = 'Boutique';
-  String _country = 'SN';
+  String _country = 'BF';
   String _currency = 'XOF';
   bool _loading = false;
 
   static const _countries = [
+    ('BF', 'Burkina Faso'),
     ('SN', 'Sénégal'),
     ('CI', "Côte d'Ivoire"),
-    ('BF', 'Burkina Faso'),
     ('ML', 'Mali'),
+    ('NE', 'Niger'),
     ('GN', 'Guinée'),
     ('TG', 'Togo'),
     ('BJ', 'Bénin'),
+    ('GM', 'Gambie'),
   ];
 
   @override

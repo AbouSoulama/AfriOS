@@ -110,7 +110,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final resolvedCountry =
-        countryCode ?? prefs.getString('phone_country_code') ?? 'SN';
+        countryCode ?? prefs.getString('phone_country_code') ?? 'BF';
     final res = await _api.createBusiness({
       'name': name,
       'sector': sector,

@@ -1,47 +1,44 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import afriosLogo from "../assets/afrios-logo.png";
+import Icon from "./Icon";
 
-interface Props {
-  scrollY: number;
-  onDemo: () => void;
-}
+const links = [
+  { label: "Comment ça marche", href: "#how" },
+  { label: "L'application", href: "#app" },
+  { label: "Qui paie quoi ?", href: "#who-pays" },
+  { label: "Tarifs", href: "#pricing" },
+  { label: "FAQ", href: "#faq" },
+];
 
-export default function Navbar({ scrollY, onDemo }: Props) {
+export default function Navbar() {
   const [open, setOpen] = useState(false);
-  const scrolled = scrollY > 20;
+  const [scrolled, setScrolled] = useState(false);
 
-  const links = [
-    { label: "Fonctionnalités", href: "#features" },
-    { label: "Démo App", href: "#showcase" },
-    { label: "Mobile Money", href: "#mobile-money" },
-    { label: "IA Business", href: "#ai" },
-    { label: "Tarifs", href: "#pricing" },
-  ];
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <header
-      className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-white/80 backdrop-blur-xl border-b border-slate-200/60 shadow-sm"
-          : "bg-transparent"
+      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
+        scrolled ? "border-b border-afri-line bg-white/85 shadow-sm backdrop-blur-xl" : "bg-transparent"
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 lg:h-20">
-          <a href="#" className="flex items-center gap-2.5 group">
-            <img
-              src={afriosLogo}
-              alt="AfriOS"
-              className="h-10 w-auto group-hover:scale-105 transition-transform"
-            />
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between lg:h-20">
+          <a href="#" className="flex items-center gap-2.5">
+            <img src={afriosLogo} alt="AfriOS" className="h-10 w-auto rounded-xl" />
           </a>
 
-          <nav className="hidden lg:flex items-center gap-1">
+          <nav className="hidden items-center gap-1 lg:flex">
             {links.map((l) => (
               <a
                 key={l.href}
                 href={l.href}
-                className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-teal-700 rounded-full hover:bg-teal-50 transition-colors"
+                className="rounded-full px-4 py-2 text-sm font-medium text-afri-navy transition-colors hover:bg-afri-teal-mist hover:text-afri-teal-dark"
               >
                 {l.label}
               </a>
@@ -49,43 +46,37 @@ export default function Navbar({ scrollY, onDemo }: Props) {
           </nav>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={onDemo}
-              className="hidden sm:inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 hover:text-teal-700 rounded-full hover:bg-slate-100 transition-colors"
+            <a
+              href="#get-app"
+              className="inline-flex items-center gap-2 rounded-full bg-afri-teal px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-afri-teal-dark"
             >
-              Essayer démo
-            </button>
+              <Icon name="smartphone" size={16} />
+              Rejoindre la bêta
+            </a>
             <button
-              onClick={onDemo}
-              className="btn-shine inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white rounded-full bg-gradient-to-r from-teal-600 to-blue-800 hover:shadow-xl hover:shadow-teal-500/30 transition-all"
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a3 3 0 00-3 3v1H6a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V8a2 2 0 00-2-2h-1V5a3 3 0 00-3-3zm0 2a1 1 0 011 1v1H9V5a1 1 0 011-1z"/></svg>
-              Installer
-            </button>
-            <button
+              type="button"
               onClick={() => setOpen(!open)}
-              className="lg:hidden p-2 rounded-lg hover:bg-slate-100"
+              className="rounded-lg p-2 hover:bg-afri-mist lg:hidden"
               aria-label="Menu"
+              aria-expanded={open}
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={open ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}/></svg>
+              <Icon name={open ? "close" : "menu"} size={22} />
             </button>
           </div>
         </div>
 
         {open && (
-          <div className="lg:hidden py-4 border-t border-slate-200 animate-fade-in-up">
-            <div className="flex flex-col gap-1">
-              {links.map((l) => (
-                <a
-                  key={l.href}
-                  href={l.href}
-                  onClick={() => setOpen(false)}
-                  className="px-4 py-3 text-sm font-medium text-slate-700 rounded-xl hover:bg-teal-50 hover:text-teal-700"
-                >
-                  {l.label}
-                </a>
-              ))}
-            </div>
+          <div className="animate-fade-in-up border-t border-afri-line bg-white py-3 lg:hidden">
+            {links.map((l) => (
+              <a
+                key={l.href}
+                href={l.href}
+                onClick={() => setOpen(false)}
+                className="block rounded-xl px-4 py-3 text-sm font-medium text-afri-navy hover:bg-afri-teal-mist hover:text-afri-teal-dark"
+              >
+                {l.label}
+              </a>
+            ))}
           </div>
         )}
       </div>

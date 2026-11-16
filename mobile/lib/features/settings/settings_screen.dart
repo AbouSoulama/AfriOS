@@ -65,7 +65,9 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
+              const _WhoPaysWhatCard(),
+              const SizedBox(height: 16),
               _SettingsTile(
                 icon: Icons.business_outlined,
                 title: 'Entreprise',
@@ -73,15 +75,15 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => context.push('/settings/business'),
               ),
               _SettingsTile(
-                icon: Icons.payment_outlined,
-                title: 'Intégrations Mobile Money',
-                subtitle: 'FedaPay — Wave, Moov, MTN…',
+                icon: Icons.payments_outlined,
+                title: 'Encaissement clients',
+                subtitle: 'Reçois l’argent de tes clients par Mobile Money',
                 onTap: () => context.push('/settings/payments'),
               ),
               _SettingsTile(
                 icon: Icons.workspace_premium_outlined,
-                title: 'Abonnement',
-                subtitle: 'Gratuit · Pro · Entreprise',
+                title: 'Abonnement AfriOS',
+                subtitle: 'Ce que tu paies à AfriOS · Gratuit ou Pro',
                 onTap: () => context.push('/settings/subscription'),
               ),
               _SettingsTile(
@@ -114,6 +116,60 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Explique en deux phrases la seule chose qui prête à confusion dans l'app :
+/// qui paie qui. Affichée en haut des paramètres.
+class _WhoPaysWhatCard extends StatelessWidget {
+  const _WhoPaysWhatCard();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget row(IconData icon, String title, String body) => Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: AfriColors.tealDark),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '$title  ',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    TextSpan(text: body),
+                  ],
+                ),
+                style: const TextStyle(
+                    fontSize: 13, height: 1.4, color: AfriColors.ink),
+              ),
+            ),
+          ],
+        );
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AfriColors.tealMist,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AfriColors.tealSoft),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Qui paie quoi ?',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          const SizedBox(height: 10),
+          row(Icons.south_west_rounded, 'Tes clients te paient',
+              'tes factures, en Mobile Money ou en espèces. C’est ton argent.'),
+          const SizedBox(height: 8),
+          row(Icons.north_east_rounded, 'Toi, tu paies AfriOS',
+              'uniquement ton abonnement (le plan Gratuit ne coûte rien).'),
+        ],
       ),
     );
   }
@@ -202,19 +258,21 @@ class _BusinessSettingsScreenState
   final _name = TextEditingController();
   final _tax = TextEditingController();
   String _sector = 'Boutique';
-  String _country = 'SN';
+  String _country = 'BF';
   String _currency = 'XOF';
   bool _loading = false;
   bool _ready = false;
 
   static const _countries = [
+    ('BF', 'Burkina Faso'),
     ('SN', 'Sénégal'),
     ('CI', "Côte d'Ivoire"),
-    ('BF', 'Burkina Faso'),
     ('ML', 'Mali'),
+    ('NE', 'Niger'),
     ('GN', 'Guinée'),
     ('TG', 'Togo'),
     ('BJ', 'Bénin'),
+    ('GM', 'Gambie'),
   ];
 
   @override
@@ -362,7 +420,7 @@ class _BusinessSettingsScreenState
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context)
-                                  .showSnackBar(SnackBar(content: Text('$e')));
+                                  .showSnackBar(SnackBar(content: Text(ApiConfig.friendlyError(e))));
                             }
                           } finally {
                             if (mounted) setState(() => _loading = false);
@@ -395,7 +453,7 @@ class _PaymentIntegrationsScreenState
   bool _saving = false;
   bool _secretSet = false;
   bool _sandboxMode = true;
-  bool _usingPlatformKeys = false;
+  bool _ready = false;
   String _callbackUrl = '';
 
   @override
@@ -408,6 +466,7 @@ class _PaymentIntegrationsScreenState
     try {
       final api = ref.read(apiClientProvider);
       final data = await api.getPaymentSettings();
+      _ready = data['ready'] as bool? ?? true;
       _publicKey.text =
           (data['public_key'] as String?) ?? (data['site_id'] as String?) ?? '';
       _enabled = data['enabled'] as bool? ?? false;
@@ -415,7 +474,6 @@ class _PaymentIntegrationsScreenState
           (data['api_key_set'] as bool?) ??
           false;
       _sandboxMode = data['sandbox_mode'] as bool? ?? true;
-      _usingPlatformKeys = data['using_platform_keys'] as bool? ?? false;
       _callbackUrl = (data['callback_url'] as String?) ??
           (data['notify_url'] as String?) ??
           '';
@@ -446,34 +504,43 @@ class _PaymentIntegrationsScreenState
                           onPressed: () => context.pop(),
                           icon: const Icon(Icons.arrow_back_rounded),
                         ),
-                        Text('FedaPay',
+                        Text('Encaissement clients',
                             style: Theme.of(context).textTheme.headlineSmall),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      _sandboxMode
-                          ? 'Mode sandbox : sans clés FedaPay, AfriOS ouvre une page de test qui confirme le paiement.'
-                          : 'FedaPay connecté. Tes clients peuvent payer en Mobile Money.',
+                      'C’est ici que tu connectes TON compte FedaPay. Quand un client '
+                      'paie une facture en Mobile Money, l’argent arrive directement '
+                      'sur ton compte — pas chez AfriOS. Ton abonnement AfriOS se '
+                      'règle ailleurs (Paramètres → Abonnement AfriOS).',
                       style: Theme.of(context)
                           .textTheme
                           .bodyMedium
                           ?.copyWith(color: AfriColors.slate, height: 1.4),
                     ),
-                    if (_usingPlatformKeys) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        'Clés plateforme AfriOS utilisées (fallback serveur).',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AfriColors.teal,
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                    ],
+                    const SizedBox(height: 14),
+                    _StatusNotice(
+                      color: _secretSet
+                          ? AfriColors.success
+                          : (_ready ? AfriColors.amber : AfriColors.orange),
+                      icon: _secretSet
+                          ? Icons.check_circle_rounded
+                          : (_ready
+                              ? Icons.science_outlined
+                              : Icons.warning_amber_rounded),
+                      text: _secretSet
+                          ? (_sandboxMode
+                              ? 'Compte FedaPay connecté (mode test FedaPay).'
+                              : 'Compte FedaPay connecté. Tes clients peuvent te payer en Mobile Money.')
+                          : (_ready
+                              ? 'Mode test : sans tes clés, les paiements sont simulés et aucun argent réel ne circule.'
+                              : 'Non configuré : sans tes clés FedaPay, tes clients ne peuvent pas payer en ligne. Tu peux toujours encaisser en espèces.'),
+                    ),
                     if (_callbackUrl.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       Text(
-                        'Callback : $_callbackUrl',
+                        'URL de notification à saisir dans FedaPay : $_callbackUrl',
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
@@ -483,7 +550,8 @@ class _PaymentIntegrationsScreenState
                     const SizedBox(height: 24),
                     SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Activer Mobile Money'),
+                      title: const Text('Proposer le paiement Mobile Money'),
+                      subtitle: const Text('Sur les factures envoyées à tes clients'),
                       value: _enabled,
                       onChanged: (v) => setState(() => _enabled = v),
                     ),
@@ -491,7 +559,7 @@ class _PaymentIntegrationsScreenState
                     TextFormField(
                       controller: _publicKey,
                       decoration: const InputDecoration(
-                          labelText: 'Clé publique FedaPay'),
+                          labelText: 'Clé publique FedaPay (ton compte)'),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -499,7 +567,7 @@ class _PaymentIntegrationsScreenState
                       decoration: InputDecoration(
                         labelText: _secretSet
                             ? 'Nouvelle clé secrète (laisser vide pour garder)'
-                            : 'Clé secrète FedaPay',
+                            : 'Clé secrète FedaPay (ton compte)',
                       ),
                       obscureText: true,
                     ),
@@ -531,14 +599,14 @@ class _PaymentIntegrationsScreenState
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                   content: Text(
-                                      'Configuration FedaPay synchronisée')),
+                                      'Encaissement clients enregistré')),
                             );
                             context.pop();
                           }
                         } catch (e) {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Erreur : $e')),
+                              SnackBar(content: Text(ApiConfig.friendlyError(e))),
                             );
                           }
                         } finally {
@@ -549,6 +617,43 @@ class _PaymentIntegrationsScreenState
                   ],
                 ),
         ),
+      ),
+    );
+  }
+}
+
+/// Bandeau d'état coloré (icône + texte) utilisé sur les écrans de paiement.
+class _StatusNotice extends StatelessWidget {
+  const _StatusNotice({
+    required this.color,
+    required this.icon,
+    required this.text,
+  });
+
+  final Color color;
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(
+                    fontSize: 13, height: 1.4, color: AfriColors.ink)),
+          ),
+        ],
       ),
     );
   }
@@ -591,47 +696,100 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       if (mounted) {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+            .showSnackBar(SnackBar(content: Text(ApiConfig.friendlyError(e))));
       }
     }
   }
 
+  String _formatPrice(Object? value) {
+    final n = (value is num) ? value.round() : int.tryParse('$value') ?? 0;
+    final digits = n.toString();
+    final buffer = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 == 0) buffer.write(' ');
+      buffer.write(digits[i]);
+    }
+    return buffer.toString();
+  }
+
+  String? _expiryLabel() {
+    final raw = _current?['plan_expires_at'] as String?;
+    if (raw == null) return null;
+    final date = DateTime.tryParse(raw)?.toLocal();
+    if (date == null) return null;
+    final dd = date.day.toString().padLeft(2, '0');
+    final mm = date.month.toString().padLeft(2, '0');
+    return '$dd/$mm/${date.year}';
+  }
+
   Future<void> _subscribe(String planId) async {
+    // Repasser en Gratuit fait perdre des fonctions : on demande confirmation.
+    if (planId == 'free') {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Repasser en Gratuit ?'),
+          content: const Text(
+              'Tu perdras l’assistant IA et les relances automatiques. '
+              'Tes factures et clients restent intacts.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Annuler')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Repasser en Gratuit')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+
     setState(() => _busy = true);
     try {
       final api = ref.read(apiClientProvider);
       final res = await api.subscribePlan(planId);
       final link = res['payment_link'] as String?;
       final tx = res['transaction_id'] as String?;
+      final sandbox = res['sandbox_mock'] as bool? ?? false;
       if (link != null && link.isNotEmpty && mounted) {
         await openExternalUrl(
           context,
           link,
-          successMessage: 'Page de paiement ouverte — confirme puis reviens.',
+          successMessage: sandbox
+              ? 'Page de test ouverte : confirme le paiement de ton abonnement, puis reviens ici.'
+              : 'Page de paiement ouverte : règle ton abonnement AfriOS, puis reviens ici.',
         );
         if (tx != null && mounted) {
           final confirm = await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('Paiement terminé ?'),
+              title: const Text('Abonnement payé ?'),
               content: const Text(
-                  'Si tu as confirmé le paiement FedaPay / sandbox, valide ici.'),
+                  'Si tu as réglé ton abonnement AfriOS sur la page de paiement, '
+                  'confirme ici pour activer ton plan.'),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
                     child: const Text('Plus tard')),
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Confirmer')),
+                    child: const Text('J’ai payé')),
               ],
             ),
           );
           if (confirm == true) {
-            await api.confirmSubscription(transactionId: tx, planId: planId);
+            final result =
+                await api.confirmSubscription(transactionId: tx, planId: planId);
             await _load();
             if (mounted) {
+              final ok = result['status'] == 'ok';
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Abonnement mis à jour')),
+                SnackBar(
+                  content: Text(ok
+                      ? 'Abonnement activé — merci !'
+                      : 'Paiement pas encore reçu. Réessaie dans un instant.'),
+                ),
               );
             }
           }
@@ -647,7 +805,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Erreur : $e')));
+            .showSnackBar(SnackBar(content: Text(ApiConfig.friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -673,20 +831,40 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                           onPressed: () => context.pop(),
                           icon: const Icon(Icons.arrow_back_rounded),
                         ),
-                        Text('Abonnement',
+                        Text('Abonnement AfriOS',
                             style: Theme.of(context).textTheme.headlineSmall),
                       ],
                     ),
                     const SizedBox(height: 8),
+                    const _StatusNotice(
+                      color: AfriColors.teal,
+                      icon: Icons.info_outline_rounded,
+                      text:
+                          'C’est ce que TU paies à AfriOS pour utiliser l’application. '
+                          'Ça n’a rien à voir avec l’argent de tes clients, qui arrive '
+                          'directement chez toi.',
+                    ),
+                    const SizedBox(height: 14),
                     Text(
                       'Plan actuel : ${(_current?['plan'] as Map?)?['name'] ?? currentId}',
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, color: AfriColors.teal),
                     ),
+                    if (currentId != 'free' && _expiryLabel() != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        (_current?['is_active'] as bool? ?? true)
+                            ? 'Actif jusqu’au ${_expiryLabel()}'
+                            : 'Expiré le ${_expiryLabel()}',
+                        style: const TextStyle(
+                            color: AfriColors.slate, fontSize: 13),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     ..._plans.map((plan) {
                       final id = plan['id'] as String? ?? '';
                       final price = plan['price_monthly'] ?? 0;
+                      final available = plan['available'] as bool? ?? true;
                       final features =
                           List<String>.from((plan['features'] as List?) ?? []);
                       final selected = id == currentId;
@@ -719,7 +897,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                                 Text(
                                   price == 0
                                       ? 'Gratuit'
-                                      : '$price FCFA/mois',
+                                      : '${_formatPrice(price)} FCFA/mois',
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w700),
                                 ),
@@ -752,11 +930,13 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                             AfriButton(
                               label: selected
                                   ? 'Plan actuel'
-                                  : (price == 0
-                                      ? 'Passer en Gratuit'
-                                      : 'Choisir ce plan'),
+                                  : (!available
+                                      ? 'Bientôt disponible'
+                                      : (price == 0
+                                          ? 'Passer en Gratuit'
+                                          : 'Choisir ce plan')),
                               isLoading: _busy,
-                              onPressed: selected
+                              onPressed: (selected || !available)
                                   ? null
                                   : () => _subscribe(id),
                             ),
@@ -797,26 +977,33 @@ class HelpSupportScreen extends StatelessWidget {
               _HelpCard(
                 title: 'Démarrer',
                 body:
-                    '1. Ajoute un client\n2. Crée une facture\n3. Envoie-la sur WhatsApp\n4. Encaisse en espèces ou Mobile Money',
+                    '1. Ajoute un client\n2. Crée une facture\n3. Envoie-la sur WhatsApp\n4. Ton client paie (Mobile Money ou espèces) et tu suis l’encaissement',
+              ),
+              _HelpCard(
+                title: 'Qui paie quoi ?',
+                body:
+                    'Tes clients te paient tes factures : cet argent est à toi.\n'
+                    'Toi, tu paies seulement ton abonnement AfriOS (Paramètres → Abonnement AfriOS). '
+                    'Le plan Gratuit ne coûte rien.',
               ),
               _HelpCard(
                 title: 'Connexion',
                 body:
-                    'L\'app utilise https://afrios-api.onrender.com/v1 par défaut (4G / Wi‑Fi).\n'
-                    'OTP SMS : Africa\'s Talking doit être configuré sur le serveur.\n'
-                    'Paiements : FedaPay (clés dans Paramètres → FedaPay).',
+                    'L\'app utilise https://afrios-api.onrender.com/v1 par défaut (4G / Wi‑Fi). '
+                    'Si le serveur est en veille, le premier chargement peut prendre une minute.\n'
+                    'Paiements Mobile Money de tes clients : Paramètres → Encaissement clients.',
               ),
               _HelpCard(
                 title: 'Support beta',
                 body:
-                    'WhatsApp support : +221 77 000 00 00\nEmail : support@afrios.app',
+                    'WhatsApp support : +226 04 04 61 90\nEmail : info.afrios@gmail.com',
               ),
               const SizedBox(height: 12),
               AfriButton(
                 label: 'Écrire sur WhatsApp',
                 icon: Icons.chat_outlined,
                 onPressed: () => launchUrl(
-                  Uri.parse('https://wa.me/221770000000'),
+                  Uri.parse('https://wa.me/22604046190'),
                   mode: LaunchMode.externalApplication,
                 ),
               ),
@@ -916,7 +1103,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
               rules.when(
                 loading: () =>
                     const LinearProgressIndicator(color: AfriColors.teal),
-                error: (e, _) => Text('$e'),
+                error: (e, _) => Text(ApiConfig.friendlyError(e)),
                 data: (r) {
                   final enabled = r['enabled'] as bool? ?? true;
                   final days = List<int>.from(
@@ -971,7 +1158,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
               overdue.when(
                 loading: () => const Center(
                     child: CircularProgressIndicator(color: AfriColors.teal)),
-                error: (e, _) => Text('$e'),
+                error: (e, _) => Text(ApiConfig.friendlyError(e)),
                 data: (list) {
                   if (list.isEmpty) {
                     return const AfriEmptyState(
