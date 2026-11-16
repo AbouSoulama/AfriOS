@@ -4,7 +4,7 @@ const steps: { icon: IconName; title: string; text: string }[] = [
   {
     icon: "userPlus",
     title: "1. Ajoutez un client",
-    text: "Nom et téléphone suffisent. Vous connectez votre numéro par code SMS, sans mot de passe à retenir.",
+    text: "Nom et téléphone suffisent. Vous vous connectez avec un code SMS, sans mot de passe à retenir.",
   },
   {
     icon: "receipt",
