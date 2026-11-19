@@ -89,6 +89,11 @@ class Settings(BaseSettings):
     jobs_cron_secret: str = "dev-cron-secret"
     app_name: str = "AfriOS API"
     app_version: str = "1.0.0"
+    # Version de l'APK Android publiée (mise à jour in-app + page web).
+    mobile_version_name: str = "1.0.1"
+    mobile_version_code: int = 2
+    mobile_apk_url: str = "https://afrios.afrizone.tech/download/AfriOS.apk"
+    mobile_release_notes: str = "Catégories produits, quantité sur facture, paiements Chariot."
     cors_origins: list[str] = ["*"]
     api_prefix: str = "/v1"
 

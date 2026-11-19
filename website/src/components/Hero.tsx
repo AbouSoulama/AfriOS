@@ -26,11 +26,12 @@ export default function Hero() {
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a
-                href="#get-app"
+                href="/download/AfriOS.apk"
+                download="AfriOS.apk"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-afri-teal px-7 py-4 text-base font-bold text-white shadow-lg shadow-afri-teal/30 transition-colors hover:bg-afri-teal-dark"
               >
-                <Icon name="smartphone" size={19} />
-                Rejoindre la bêta
+                <Icon name="download" size={19} />
+                Télécharger l'app
               </a>
               <a
                 href="#app"

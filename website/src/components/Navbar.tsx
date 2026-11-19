@@ -47,11 +47,12 @@ export default function Navbar() {
 
           <div className="flex items-center gap-2">
             <a
-              href="#get-app"
+              href="/download/AfriOS.apk"
+              download="AfriOS.apk"
               className="inline-flex items-center gap-2 rounded-full bg-afri-teal px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-afri-teal-dark"
             >
-              <Icon name="smartphone" size={16} />
-              Rejoindre la bêta
+              <Icon name="download" size={16} />
+              Télécharger
             </a>
             <button
               type="button"

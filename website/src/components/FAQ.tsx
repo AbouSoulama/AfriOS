@@ -12,7 +12,7 @@ const faqs = [
   },
   {
     q: "Sur quels téléphones et dans quels pays ?",
-    a: "L'application est en bêta sur Android (Android 8 et plus), pour toute l'Afrique de l'Ouest (Burkina Faso, Sénégal, Côte d'Ivoire, Mali, etc.). Les montants sont en FCFA.",
+    a: "Oui : téléchargez l'APK directement sur ce site (bouton Télécharger). Android 8 et plus, Afrique de l'Ouest, montants en FCFA. Les mises à jour s'installent par-dessus sans perdre vos données.",
   },
   {
     q: "Et sans connexion Internet ?",

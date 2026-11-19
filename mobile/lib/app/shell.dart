@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../core/database/sync_service.dart';
+import '../core/services/app_update_service.dart';
 import '../core/theme/afri_colors.dart';
 
 class _NavItem {
@@ -61,13 +62,27 @@ double shellBottomClearance(BuildContext context) {
   return MediaQuery.of(context).padding.bottom + 28;
 }
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      AppUpdateService.checkAndPrompt(context);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final path = GoRouterState.of(context).uri.path;
     final index = _indexFromLocation(path);
 
@@ -94,7 +109,7 @@ class AppShell extends ConsumerWidget {
     // floating glass nav and remain visible through / below it.
     return Scaffold(
       backgroundColor: AfriColors.mist,
-      body: child,
+      body: widget.child,
       bottomNavigationBar: ColoredBox(
         color: AfriColors.mist,
         child: Padding(
