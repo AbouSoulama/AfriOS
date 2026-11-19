@@ -30,10 +30,10 @@ export default function WhoPays() {
             </p>
             <ul className="mt-5 space-y-2.5 text-sm text-afri-navy">
               {[
-                "Vous connectez votre compte FedaPay une seule fois",
+                "Vous connectez votre compte Chariot une seule fois",
                 "Le client reçoit un lien de paiement par WhatsApp",
                 "La facture passe en « Payée » après vérification",
-                "Pas de compte FedaPay ? Vous encaissez en espèces",
+                "Pas de compte Chariot ? Vous encaissez en espèces",
               ].map((t) => (
                 <li key={t} className="flex items-start gap-2.5">
                   <Icon name="check" size={16} strokeWidth={3} className="mt-0.5 shrink-0 text-afri-teal" />

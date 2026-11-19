@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiConfig {
   static const prefKey = 'api_base_url';
-  static const productionUrl = 'https://afrios-api.onrender.com/v1';
+  static const productionUrl = 'https://afrios.afrizone.tech/v1';
   static String? _baseUrl;
   static bool _isPhysicalDevice = false;
 
@@ -177,7 +177,7 @@ class ApiConfig {
 
   static String get _connectionHelp =>
       "Serveur inaccessible. Vérifie ta connexion internet (4G / Wi-Fi).\n"
-      "L'app utilise déjà https://afrios-api.onrender.com/v1.\n"
+      "L'app utilise déjà https://afrios.afrizone.tech/v1.\n"
       "Si le serveur est en veille, attends une minute puis réessaie.";
 
   static String _formatValidationItem(dynamic e) {

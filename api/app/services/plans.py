@@ -36,7 +36,7 @@ PLANS: dict[str, Plan] = {
             "Jusqu'à 50 factures / mois",
             "Gestion de stock",
             "Jusqu'à 25 clients",
-            "Encaissement Mobile Money (compte FedaPay)",
+            "Encaissement Mobile Money (compte Chariot)",
             "Relances manuelles par WhatsApp",
             "Mode hors ligne",
         ],

@@ -15,8 +15,10 @@ def _engine_kwargs() -> dict:
     url = settings.database_url
     if "+asyncpg" in url or url.startswith("postgresql"):
         connect_args: dict = {"timeout": 60}
-        # Render Postgres requires TLS. Local docker Postgres does not.
-        if not is_local_database(url):
+        # Managed Postgres (Render, etc.) needs TLS. Docker Compose Postgres does not.
+        if is_local_database(url):
+            connect_args["ssl"] = False
+        else:
             connect_args["ssl"] = True
         kwargs["connect_args"] = connect_args
         kwargs["pool_size"] = 5
@@ -45,6 +47,12 @@ def _ensure_business_payment_columns(sync_conn) -> None:
             ("cinetpay_site_id", "VARCHAR(100)"),
             (
                 "cinetpay_enabled",
+                "BOOLEAN DEFAULT 0" if dialect == "sqlite" else "BOOLEAN DEFAULT FALSE",
+            ),
+            ("chariot_secret_key", "TEXT"),
+            ("chariot_public_key", "TEXT"),
+            (
+                "chariot_enabled",
                 "BOOLEAN DEFAULT 0" if dialect == "sqlite" else "BOOLEAN DEFAULT FALSE",
             ),
             ("fedapay_secret_key", "TEXT"),

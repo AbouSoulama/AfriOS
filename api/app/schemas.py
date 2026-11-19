@@ -215,7 +215,7 @@ class PaymentSettingsUpdate(BaseModel):
 
 
 class PaymentSettingsResponse(BaseModel):
-    provider: str = "fedapay"
+    provider: str = "chariot"
     public_key: str | None = None
     secret_key_set: bool = False
     enabled: bool = False

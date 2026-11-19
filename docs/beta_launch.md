@@ -16,7 +16,7 @@ Valider le produit avec **50 commerçants** avant publication Play Store.
 ### Fonctionnel
 - [x] Inscription OTP complète (dev mode + chemin SMS Africa's Talking)
 - [x] Création client + facture + partage WhatsApp
-- [x] Paiement FedaPay sandbox (clés du commerçant) → statut Payée
+- [x] Paiement Chariot sandbox (clés du commerçant) → statut Payée
 - [x] Abonnement Pro (clés plateforme) → plan activé, expiration à 30 jours
 - [x] Marquage manuel paiement espèces
 - [x] Relance manuelle WhatsApp

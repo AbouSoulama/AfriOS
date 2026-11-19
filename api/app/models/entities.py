@@ -110,7 +110,11 @@ class Business(Base):
     plan_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Dernière transaction d'abonnement appliquée (empêche de rejouer un même paiement).
     plan_payment_ref: Mapped[str | None] = mapped_column(String(100))
-    # FedaPay merchant keys (optional per-business) — l'argent des clients arrive sur CE compte
+    # Chariot merchant keys — l'argent des clients arrive sur CE compte
+    chariot_secret_key: Mapped[str | None] = mapped_column(Text)
+    chariot_public_key: Mapped[str | None] = mapped_column(Text)
+    chariot_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Legacy FedaPay columns (lus en repli si chariot_* vide)
     fedapay_secret_key: Mapped[str | None] = mapped_column(Text)
     fedapay_public_key: Mapped[str | None] = mapped_column(Text)
     fedapay_enabled: Mapped[bool] = mapped_column(Boolean, default=False)

@@ -228,13 +228,50 @@ class AddProductScreen extends ConsumerStatefulWidget {
   ConsumerState<AddProductScreen> createState() => _AddProductScreenState();
 }
 
+/// Catégories proposées à l'ajout / édition d'un produit.
+const _productCategories = [
+  'Boissons',
+  'Épicerie',
+  'Alimentation',
+  'Fruits & légumes',
+  'Boulangerie / Pâtisserie',
+  'Viande / Poisson',
+  'Hygiène & beauté',
+  'Pharmacie / Parapharmacie',
+  'Vêtements',
+  'Chaussures',
+  'Accessoires',
+  'Électronique',
+  'Téléphonie',
+  'Informatique',
+  'Maison & décoration',
+  'Électroménager',
+  'Quincaillerie',
+  'Bâtiment / Matériaux',
+  'Agriculture',
+  'Élevage',
+  'Auto / Moto',
+  'Pièces détachées',
+  'Services',
+  'Réparation',
+  'Coiffure / Esthétique',
+  'Restauration',
+  'Livraison',
+  'Papeterie / Fournitures',
+  'Jouets',
+  'Bébé / Puériculture',
+  'Sport & loisirs',
+  'Autre',
+];
+
 class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _price = TextEditingController();
   final _qty = TextEditingController(text: '0');
   final _threshold = TextEditingController(text: '5');
-  final _category = TextEditingController();
+  final _customCategory = TextEditingController();
+  String? _category;
   bool _loading = false;
 
   bool get _isEdit => widget.productId != null;
@@ -248,7 +285,15 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       _price.text = '${p['price'] ?? ''}';
       _qty.text = '${p['quantity'] ?? 0}';
       _threshold.text = '${p['low_stock_threshold'] ?? 5}';
-      _category.text = p['category'] as String? ?? '';
+      final existing = (p['category'] as String?)?.trim();
+      if (existing != null && existing.isNotEmpty) {
+        if (_productCategories.contains(existing)) {
+          _category = existing;
+        } else {
+          _category = 'Autre';
+          _customCategory.text = existing;
+        }
+      }
     }
   }
 
@@ -258,8 +303,17 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     _price.dispose();
     _qty.dispose();
     _threshold.dispose();
-    _category.dispose();
+    _customCategory.dispose();
     super.dispose();
+  }
+
+  String? _resolvedCategory() {
+    if (_category == null || _category!.isEmpty) return null;
+    if (_category == 'Autre') {
+      final custom = _customCategory.text.trim();
+      return custom.isEmpty ? 'Autre' : custom;
+    }
+    return _category;
   }
 
   @override
@@ -300,13 +354,26 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                       : null,
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _category,
-                  decoration: const InputDecoration(
-                    labelText: 'Catégorie',
-                    hintText: 'Ex. Boissons, Épicerie, Services',
-                  ),
+                DropdownButtonFormField<String>(
+                  value: _category,
+                  decoration: const InputDecoration(labelText: 'Catégorie'),
+                  hint: const Text('Choisir une catégorie'),
+                  items: _productCategories
+                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _category = v),
                 ),
+                if (_category == 'Autre') ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _customCategory,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      labelText: 'Précise ta catégorie',
+                      hintText: 'Ex. Cosmétiques naturels',
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _price,
@@ -362,9 +429,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                         'quantity': int.tryParse(_qty.text) ?? 0,
                         'low_stock_threshold':
                             int.tryParse(_threshold.text) ?? 5,
-                        'category': _category.text.trim().isEmpty
-                            ? null
-                            : _category.text.trim(),
+                        'category': _resolvedCategory(),
                       };
                       if (_isEdit) {
                         await ref

@@ -29,7 +29,7 @@ from app.schemas import (
     InvoiceSendResponse,
     MarkPaidRequest,
 )
-from app.services.fedapay_service import create_payment_link, public_api_origin
+from app.services.chariot_service import create_payment_link, public_api_origin
 from app.services.invoice_service import (
     build_whatsapp_message,
     generate_invoice_pdf,
@@ -146,7 +146,7 @@ async def send_invoice(
         inv.payment_external_ref = ext_ref
         await ensure_pending_payment(db, inv, business, ext_ref)
     except (ValueError, httpx.HTTPError):
-        # Mobile Money non configuré ou FedaPay injoignable : la facture part quand même,
+        # Mobile Money non configuré ou Chariot injoignable : la facture part quand même,
         # sans lien de paiement (le commerçant peut encaisser en espèces ou réessayer le lien).
         payment_link = None
 

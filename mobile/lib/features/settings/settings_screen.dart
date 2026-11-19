@@ -510,7 +510,7 @@ class _PaymentIntegrationsScreenState
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'C’est ici que tu connectes TON compte FedaPay. Quand un client '
+                      'C’est ici que tu connectes TON compte Chariot. Quand un client '
                       'paie une facture en Mobile Money, l’argent arrive directement '
                       'sur ton compte — pas chez AfriOS. Ton abonnement AfriOS se '
                       'règle ailleurs (Paramètres → Abonnement AfriOS).',
@@ -531,16 +531,16 @@ class _PaymentIntegrationsScreenState
                               : Icons.warning_amber_rounded),
                       text: _secretSet
                           ? (_sandboxMode
-                              ? 'Compte FedaPay connecté (mode test FedaPay).'
-                              : 'Compte FedaPay connecté. Tes clients peuvent te payer en Mobile Money.')
+                              ? 'Compte Chariot connecté (mode test).'
+                              : 'Compte Chariot connecté. Tes clients peuvent te payer en Mobile Money.')
                           : (_ready
                               ? 'Mode test : sans tes clés, les paiements sont simulés et aucun argent réel ne circule.'
-                              : 'Non configuré : sans tes clés FedaPay, tes clients ne peuvent pas payer en ligne. Tu peux toujours encaisser en espèces.'),
+                              : 'Non configuré : sans tes clés Chariot, tes clients ne peuvent pas payer en ligne. Tu peux toujours encaisser en espèces.'),
                     ),
                     if (_callbackUrl.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       Text(
-                        'URL de notification à saisir dans FedaPay : $_callbackUrl',
+                        'URL de notification à saisir dans Chariot : $_callbackUrl',
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
@@ -559,15 +559,15 @@ class _PaymentIntegrationsScreenState
                     TextFormField(
                       controller: _publicKey,
                       decoration: const InputDecoration(
-                          labelText: 'Clé publique FedaPay (ton compte)'),
+                          labelText: 'Clé publique Chariot (ton compte)'),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _secretKey,
                       decoration: InputDecoration(
                         labelText: _secretSet
-                            ? 'Nouvelle clé secrète (laisser vide pour garder)'
-                            : 'Clé secrète FedaPay (ton compte)',
+                            ? 'Nouvelle clé secrète Chariot (laisser vide pour garder)'
+                            : 'Clé secrète Chariot (ton compte)',
                       ),
                       obscureText: true,
                     ),
@@ -989,7 +989,7 @@ class HelpSupportScreen extends StatelessWidget {
               _HelpCard(
                 title: 'Connexion',
                 body:
-                    'L\'app utilise https://afrios-api.onrender.com/v1 par défaut (4G / Wi‑Fi). '
+                    'L\'app utilise https://afrios.afrizone.tech/v1 par défaut (4G / Wi‑Fi). '
                     'Si le serveur est en veille, le premier chargement peut prendre une minute.\n'
                     'Paiements Mobile Money de tes clients : Paramètres → Encaissement clients.',
               ),

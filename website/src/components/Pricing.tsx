@@ -9,7 +9,7 @@ const plans = [
       "Jusqu'à 50 factures par mois",
       "Jusqu'à 25 clients",
       "Gestion de stock",
-      "Encaissement Mobile Money (votre compte FedaPay)",
+      "Encaissement Mobile Money (votre compte Chariot)",
       "Relances manuelles par WhatsApp",
       "Mode hors ligne",
     ],

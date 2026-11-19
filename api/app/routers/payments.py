@@ -3,9 +3,9 @@
 Deux flux distincts, à ne JAMAIS mélanger :
 
 1. ENCAISSEMENT (factures)  : le CLIENT paie le COMMERÇANT.
-   -> clés FedaPay du commerçant (Paramètres → Encaissement clients).
+   -> clés Chariot du commerçant (Paramètres → Encaissement clients).
 2. ABONNEMENT (Pro, ...)    : le COMMERÇANT paie AFRIOS.
-   -> clés FedaPay de la plateforme (variables d'environnement du serveur).
+   -> clés Chariot de la plateforme (variables d'environnement du serveur).
 """
 
 from datetime import datetime, timedelta, timezone
@@ -37,7 +37,7 @@ from app.schemas import (
     PaymentVerifyRequest,
     SubscriptionCheckoutRequest,
 )
-from app.services.fedapay_service import (
+from app.services.chariot_service import (
     PaymentConfigError,
     create_payment_link,
     create_subscription_payment_link,
@@ -45,7 +45,7 @@ from app.services.fedapay_service import (
     payment_accepted,
     public_api_origin,
     transaction_metadata,
-    verify_fedapay_transaction,
+    verify_chariot_transaction,
 )
 from app.services.payment_service import complete_mobile_money_payment, ensure_pending_payment
 from app.services.plans import PLANS, effective_plan, get_plan, plan_is_active, plan_to_dict
@@ -70,22 +70,23 @@ def _request_base(request: Request) -> str:
 
 
 def _payment_settings_response(business: Business) -> PaymentSettingsResponse:
-    has_business_keys = bool((business.fedapay_secret_key or "").strip())
-    public = (business.fedapay_public_key or "").strip() or None
+    secret = (business.chariot_secret_key or business.fedapay_secret_key or "").strip()
+    public = (business.chariot_public_key or business.fedapay_public_key or "").strip() or None
+    has_business_keys = bool(secret)
     return PaymentSettingsResponse(
-        provider="fedapay",
+        provider="chariot",
         public_key=public,
         secret_key_set=has_business_keys,
-        enabled=bool(business.fedapay_enabled) or has_business_keys,
+        enabled=bool(business.chariot_enabled or business.fedapay_enabled) or has_business_keys,
         # Sans clés du commerçant, les paiements sont simulés (mode test) — jamais réels.
-        sandbox_mode=settings.fedapay_sandbox or not has_business_keys,
+        sandbox_mode=settings.chariot_sandbox or not has_business_keys,
         ready=has_business_keys or mock_allowed(),
         using_platform_keys=False,
-        callback_url=settings.fedapay_callback_url,
-        return_url=settings.fedapay_return_url,
+        callback_url=settings.chariot_callback_url,
+        return_url=settings.chariot_return_url,
         site_id=public,
         api_key_set=has_business_keys,
-        notify_url=settings.fedapay_callback_url,
+        notify_url=settings.chariot_callback_url,
     )
 
 
@@ -142,15 +143,15 @@ async def update_payment_settings(
     clear_secret = body.clear_secret_key or body.clear_api_key
 
     if public is not None:
-        business.fedapay_public_key = public.strip() or None
+        business.chariot_public_key = public.strip() or None
     if clear_secret:
-        business.fedapay_secret_key = None
+        business.chariot_secret_key = None
     elif secret is not None and secret.strip():
-        business.fedapay_secret_key = secret.strip()
+        business.chariot_secret_key = secret.strip()
     if body.enabled is not None:
-        business.fedapay_enabled = body.enabled
-    elif business.fedapay_secret_key:
-        business.fedapay_enabled = True
+        business.chariot_enabled = body.enabled
+    elif business.chariot_secret_key:
+        business.chariot_enabled = True
     await db.flush()
     return _payment_settings_response(business)
 
@@ -201,7 +202,7 @@ async def initiate_payment(
         "transaction_id": ext_ref,
         "payment_id": str(payment.id),
         "sandbox_mock": is_mock,
-        "provider": "fedapay",
+        "provider": "chariot",
     }
 
 
@@ -211,7 +212,7 @@ async def verify_payment(
     business: Business = Depends(get_current_business),
     db: AsyncSession = Depends(get_db),
 ):
-    """Vérifie si le CLIENT a payé (interroge FedaPay)."""
+    """Vérifie si le CLIENT a payé (interroge Chariot)."""
     transaction_id = body.transaction_id
     invoice: Invoice | None = None
 
@@ -248,7 +249,7 @@ async def verify_payment(
             "invoice_status": invoice.status.value,
         }
 
-    verification = await verify_fedapay_transaction(transaction_id, business, scope="invoice")
+    verification = await verify_chariot_transaction(transaction_id, business, scope="invoice")
     if not payment_accepted(verification):
         return {
             "status": "pending",
@@ -266,14 +267,14 @@ async def verify_payment(
     }
 
 
-@router.post("/webhooks/fedapay")
+@router.post("/webhooks/chariot")
 @router.post("/webhooks/cinetpay")  # legacy alias
-async def fedapay_webhook(request: Request, db: AsyncSession = Depends(get_db)):
-    """Notification FedaPay.
+async def chariot_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+    """Notification Chariot.
 
     Le contenu du webhook n'est JAMAIS cru tel quel (n'importe qui peut poster dessus) :
     on ne s'en sert que pour retrouver l'identifiant de transaction, puis on interroge
-    FedaPay avec nos clés pour connaître le vrai statut.
+    Chariot avec nos clés pour connaître le vrai statut.
     """
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
@@ -305,7 +306,7 @@ async def fedapay_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             return {"status": "already_processed"}
         biz_result = await db.execute(select(Business).where(Business.id == payment.business_id))
         business = biz_result.scalar_one()
-        verification = await verify_fedapay_transaction(
+        verification = await verify_chariot_transaction(
             payment.external_ref or str(tx_id), business, scope="invoice"
         )
         if payment_accepted(verification):
@@ -317,7 +318,7 @@ async def fedapay_webhook(request: Request, db: AsyncSession = Depends(get_db)):
 
     # Paiement d'un abonnement (le commerçant a payé AfriOS)
     tx_ref = f"FEDA-{tx_id}"
-    verification = await verify_fedapay_transaction(tx_ref, None, scope="subscription")
+    verification = await verify_chariot_transaction(tx_ref, None, scope="subscription")
     if not payment_accepted(verification):
         return {"status": "ignored"}
     meta = transaction_metadata(verification)
@@ -416,7 +417,7 @@ async def subscribe_plan(
         "payment_link": payment_link,
         "transaction_id": ext_ref,
         "sandbox_mock": is_mock,
-        "provider": "fedapay",
+        "provider": "chariot",
     }
 
 
@@ -429,14 +430,14 @@ async def confirm_subscription(
     """Confirme un abonnement après paiement.
 
     L'identifiant de transaction vient du client : on ne lui fait pas confiance.
-    On exige que FedaPay confirme (1) le paiement, (2) qu'il concerne CE commerçant,
+    On exige que Chariot confirme (1) le paiement, (2) qu'il concerne CE commerçant,
     (3) qu'il s'agit bien d'un abonnement et (4) que le montant couvre le plan.
     """
     transaction_id = body.transaction_id
     if not transaction_id:
         raise HTTPException(status_code=400, detail="transaction_id requis")
 
-    verification = await verify_fedapay_transaction(transaction_id, None, scope="subscription")
+    verification = await verify_chariot_transaction(transaction_id, None, scope="subscription")
 
     if verification.get("mock"):
         # Mode sandbox : c'est la page de simulation qui active le plan. Ici on constate seulement.

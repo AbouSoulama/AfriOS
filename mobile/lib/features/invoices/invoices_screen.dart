@@ -287,10 +287,11 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
                     ..._items.map((item) => ListTile(
                           contentPadding: EdgeInsets.zero,
                           title: Text(item.description),
-                          subtitle:
-                              Text('${item.quantity} x ${item.unitPrice}'),
+                          subtitle: Text(
+                              '${item.quantity} × ${item.unitPrice} FCFA'),
                           trailing:
                               Text('${item.lineTotal.toStringAsFixed(0)} FCFA'),
+                          onTap: () => _editItemQuantity(item),
                           onLongPress: () =>
                               setState(() => _items.remove(item)),
                         )),
@@ -298,7 +299,8 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 8),
                         child: Text(
-                          'Ajoute au moins une ligne. Appui long pour retirer.',
+                          'Ajoute un produit et choisis la quantité. '
+                          'Appui court : modifier la quantité. Appui long : retirer.',
                           style:
                               TextStyle(color: AfriColors.slate, fontSize: 13),
                         ),
@@ -370,35 +372,150 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
       context: context,
       builder: (ctx) => products.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Text('$e'),
+        error: (e, _) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(ApiConfig.friendlyError(e)),
+        ),
         data: (list) => ListView(
           children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                'Ajouter un produit',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
+            ),
             ListTile(
+              leading: const Icon(Icons.edit_note_rounded),
               title: const Text('Ligne personnalisée'),
+              subtitle: const Text('Sans produit du stock'),
               onTap: () {
                 Navigator.pop(ctx);
                 _addCustomItem();
               },
             ),
-            ...list.map((p) => ListTile(
-                  title: Text(p['name'] as String),
-                  subtitle: Text('${p['price']} FCFA'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    setState(() {
-                      _items.add(_LineItem(
-                        description: p['name'] as String,
-                        quantity: 1,
-                        unitPrice: asDouble(p['price']),
-                        productId: p['id'] as String,
-                      ));
-                    });
-                  },
-                )),
+            const Divider(height: 1),
+            ...list.map((p) {
+              final stock = asInt(p['quantity']);
+              return ListTile(
+                title: Text(p['name'] as String),
+                subtitle: Text(
+                  '${p['price']} FCFA'
+                  '${stock > 0 ? ' · Stock : $stock' : ''}',
+                ),
+                trailing: const Icon(Icons.add_rounded),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _addProductItem(p);
+                },
+              );
+            }),
           ],
         ),
       ),
     );
+  }
+
+  /// Demande la quantité avant d'ajouter un produit du stock à la facture.
+  Future<void> _addProductItem(Map<String, dynamic> product) async {
+    final qtyCtrl = TextEditingController(text: '1');
+    final stock = asInt(product['quantity']);
+    final confirmed = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(product['name'] as String? ?? 'Produit'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Prix unitaire : ${product['price']} FCFA'
+              '${stock > 0 ? '\nStock disponible : $stock' : ''}',
+              style: const TextStyle(color: AfriColors.slate, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: qtyCtrl,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Quantité demandée *',
+                hintText: 'Ex. 2, 5, 10…',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              final qty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
+              if (qty < 1) return;
+              Navigator.pop(ctx, qty);
+            },
+            child: const Text('Ajouter'),
+          ),
+        ],
+      ),
+    );
+    qtyCtrl.dispose();
+    if (confirmed == null || !mounted) return;
+    setState(() {
+      _items.add(_LineItem(
+        description: product['name'] as String,
+        quantity: confirmed,
+        unitPrice: asDouble(product['price']),
+        productId: product['id'] as String,
+      ));
+    });
+  }
+
+  Future<void> _editItemQuantity(_LineItem item) async {
+    final qtyCtrl = TextEditingController(text: '${item.quantity}');
+    final confirmed = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(item.description),
+        content: TextField(
+          controller: qtyCtrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Quantité demandée *',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              final qty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
+              if (qty < 1) return;
+              Navigator.pop(ctx, qty);
+            },
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    qtyCtrl.dispose();
+    if (confirmed == null || !mounted) return;
+    setState(() {
+      final index = _items.indexOf(item);
+      if (index < 0) return;
+      _items[index] = _LineItem(
+        description: item.description,
+        quantity: confirmed,
+        unitPrice: item.unitPrice,
+        discount: item.discount,
+        productId: item.productId,
+      );
+    });
   }
 
   void _addCustomItem() {

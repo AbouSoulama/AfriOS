@@ -1,6 +1,6 @@
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,10 +32,15 @@ def database_host(url: str) -> str:
 
 
 def is_local_database(url: str) -> bool:
+    """True for SQLite / local Docker / compose services (no TLS required)."""
     if url.startswith("sqlite"):
         return True
     host = (database_host(url) or "").lower()
-    return host in {"localhost", "127.0.0.1", ""}
+    if host in {"localhost", "127.0.0.1", "", "postgres", "db", "database"}:
+        return True
+    # Explicit opt-out: ?ssl=disable or ?sslmode=disable
+    query = (urlparse(url).query or "").lower()
+    return "ssl=disable" in query or "sslmode=disable" in query or "ssl=false" in query
 
 
 class Settings(BaseSettings):
@@ -56,13 +61,19 @@ class Settings(BaseSettings):
     # true = api.sandbox.africastalking.com (username "sandbox")
     africas_talking_sandbox: bool = False
     redis_url: str = "redis://localhost:6379/0"
-    # FedaPay (Mobile Money + abonnements)
+    # Chariot (Mobile Money + abonnements)
+    chariot_secret_key: str = ""
+    chariot_public_key: str = ""
+    chariot_sandbox: bool = True
+    chariot_callback_url: str = "http://localhost:8000/v1/webhooks/chariot"
+    chariot_return_url: str = "afrios://payment/success"
+    chariot_api_base: str = "https://api.chariot.pay/v1"
+    # Legacy aliases (FedaPay / CinetPay) — lus si CHARIOT_* est vide
     fedapay_secret_key: str = ""
     fedapay_public_key: str = ""
     fedapay_sandbox: bool = True
-    fedapay_callback_url: str = "http://localhost:8000/v1/webhooks/fedapay"
-    fedapay_return_url: str = "afrios://payment/success"
-    # Legacy CinetPay (ignored if FedaPay is configured)
+    fedapay_callback_url: str = ""
+    fedapay_return_url: str = ""
     cinetpay_api_key: str = ""
     cinetpay_site_id: str = ""
     cinetpay_notify_url: str = "http://localhost:8000/v1/webhooks/cinetpay"
@@ -87,6 +98,25 @@ class Settings(BaseSettings):
         if not isinstance(value, str):
             return value
         return normalize_database_url(value)
+
+    @model_validator(mode="after")
+    def merge_legacy_payment_env(self):
+        """FEDAPAY_* reste accepté le temps de la migration vers CHARIOT_*."""
+        if not self.chariot_secret_key and self.fedapay_secret_key:
+            self.chariot_secret_key = self.fedapay_secret_key
+        if not self.chariot_public_key and self.fedapay_public_key:
+            self.chariot_public_key = self.fedapay_public_key
+        if not self.chariot_callback_url and self.fedapay_callback_url:
+            self.chariot_callback_url = self.fedapay_callback_url
+        if not self.chariot_return_url and self.fedapay_return_url:
+            self.chariot_return_url = self.fedapay_return_url
+        # Si seul FEDAPAY_SANDBOX est défini via défaut True, chariot_sandbox
+        # reste la source de vérité (déjà True par défaut).
+        if not self.chariot_callback_url:
+            self.chariot_callback_url = "http://localhost:8000/v1/webhooks/chariot"
+        if not self.chariot_return_url:
+            self.chariot_return_url = "afrios://payment/success"
+        return self
 
 
 settings = Settings()

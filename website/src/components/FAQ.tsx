@@ -4,10 +4,10 @@ import Icon from "./Icon";
 const faqs = [
   {
     q: "Mes clients paient en Mobile Money : qu'est-ce que je paie, moi ?",
-    a: "Seulement votre abonnement AfriOS, et le plan Gratuit ne coûte rien. L'argent de vos clients arrive directement sur votre compte FedaPay, pas chez AfriOS.",
+    a: "Seulement votre abonnement AfriOS, et le plan Gratuit ne coûte rien. L'argent de vos clients arrive directement sur votre compte Chariot, pas chez AfriOS.",
   },
   {
-    q: "Dois-je avoir un compte FedaPay ?",
+    q: "Dois-je avoir un compte Chariot ?",
     a: "Seulement si vous voulez que vos clients paient en ligne par Mobile Money. Vous le connectez dans Paramètres → Encaissement clients. Sans compte, vous pouvez toujours confirmer un paiement en espèces.",
   },
   {

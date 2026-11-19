@@ -8,9 +8,9 @@ if _TEST_DB.exists():
     _TEST_DB.unlink()
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TEST_DB.as_posix()}"
 os.environ["OTP_DEV_MODE"] = "true"
-os.environ["FEDAPAY_SANDBOX"] = "true"
-os.environ["FEDAPAY_SECRET_KEY"] = ""
-os.environ["FEDAPAY_PUBLIC_KEY"] = ""
+os.environ["CHARIOT_SANDBOX"] = "true"
+os.environ["CHARIOT_SECRET_KEY"] = ""
+os.environ["CHARIOT_PUBLIC_KEY"] = ""
 os.environ["OPENAI_API_KEY"] = ""
 os.environ["PLANS_ENFORCED"] = "true"
 

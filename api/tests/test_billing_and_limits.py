@@ -146,14 +146,14 @@ async def test_forged_webhook_cannot_upgrade_or_mark_paid(client, account):
     ref = pay.json()["transaction_id"]
 
     forged_invoice = await client.post(
-        "/v1/webhooks/fedapay", json={"id": ref, "status": "approved"}
+        "/v1/webhooks/chariot", json={"id": ref, "status": "approved"}
     )
     assert forged_invoice.json()["status"] == "pending"
     detail = await client.get(f"/v1/invoices/{invoice_id}", headers=headers)
     assert detail.json()["status"] != "paid"
 
     forged_sub = await client.post(
-        "/v1/webhooks/fedapay",
+        "/v1/webhooks/chariot",
         json={
             "id": 999,
             "status": "approved",
@@ -179,15 +179,15 @@ async def test_verify_does_not_pay_invoice_without_client_payment(client, accoun
 
 
 async def test_production_without_merchant_keys_refuses_instead_of_faking(client, account, monkeypatch):
-    monkeypatch.setattr(settings, "fedapay_sandbox", False)
-    monkeypatch.setattr(settings, "fedapay_secret_key", "sk_platform_must_not_be_used")
+    monkeypatch.setattr(settings, "chariot_sandbox", False)
+    monkeypatch.setattr(settings, "chariot_secret_key", "sk_platform_must_not_be_used")
     headers = await account()
     _cid, invoice_id = await _client_and_invoice(client, headers)
 
     # Les clés de la plateforme ne doivent JAMAIS servir à encaisser les clients d'un commerçant.
     pay = await client.post("/v1/payments/initiate", headers=headers, json={"invoice_id": invoice_id})
     assert pay.status_code == 400
-    assert "FedaPay" in pay.json()["detail"]
+    assert "Chariot" in pay.json()["detail"]
 
     settings_res = (await client.get("/v1/payments/settings", headers=headers)).json()
     assert settings_res["ready"] is False
